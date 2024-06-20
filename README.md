@@ -1,5 +1,5 @@
 # PerunaBot OG 01/24
-This repository is for tracking end to end LLM changes in PerunaBot that was created in Jan 2024
+This repository is for tracking end to end LLM changes in PerunaBot that was created in Jan 2024.
 
 ## Project Description
 PerunaBot is a sophisticated and user-friendly chatbot designed to assist students and faculty at Southern Methodist University. This project leverages the power of OpenAI's technology and integrates with the Qdrant vector database to provide accurate and relevant information. It's built using: Python, ChainLit, Langchain Qdrant, and Streamlit.
