@@ -1,0 +1,13 @@
+openai
+pypdf
+qdrant-client
+langchain
+langsmith
+chainlit
+python-dotenv
+tiktoken
+langchain-openai
+huggingface_hub
+pandas
+giskard[llm]
+mlflow
