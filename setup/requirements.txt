@@ -2,11 +2,14 @@ openai
 pypdf
 qdrant-client
 langchain
+langchain-core
+langchain-community
+langchain-openai
+langchain-experimental
 langsmith
 chainlit
 python-dotenv
 tiktoken
-langchain-openai
 huggingface_hub
 rank_bm25
 pandas
