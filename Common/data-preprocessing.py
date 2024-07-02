@@ -225,7 +225,7 @@ vector_store_0_retriever.invoke("How many credit hours is a major in Computer Sc
 
 # ------------------------------------------------------
 
-# using the pandas library to work with the excel file and convert it to a data frame
+# using the pandas library to work with excel file and convert it to a data frame
 import pandas as pd
 
 # Load the Excel file
