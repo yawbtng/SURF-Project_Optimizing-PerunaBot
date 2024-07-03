@@ -88,6 +88,12 @@ openai_api_key = os.environ['OPENAI_API_KEY']
 # creating the vector store
 def create_vectorstore(qdrant_collection_name):
     
+    # Ensuring Qdrant Client connection
+    client = qdrant_client.QdrantClient(
+    url=qdrant_host, 
+    api_key = qdrant_api_key,
+    )
+
     vectors_config = models.VectorParams(
    size=1536, #for OpenAI
    distance=models.Distance.COSINE
@@ -110,19 +116,28 @@ def create_vectorstore(qdrant_collection_name):
 # in this case, the vector store was probably already created in data-preprocessing.ipynb so we are going to use this function so...
 # we don't have to chunk and upload all the documents again bc that can take like 15 mins!
 def get_vectorstore(qdrant_collection_name):
-   vector_store = Qdrant(
+    # Ensuring Qdrant Client connection
+    client = qdrant_client.QdrantClient(
+    url=qdrant_host, 
+    api_key = qdrant_api_key,
+    )
+
+    vector_store = Qdrant(
         client=client, 
         collection_name=qdrant_collection_name, 
         embeddings=OpenAIEmbeddings(),
     )
-   
-   return vector_store
+    
+    return vector_store
 
 # ------------------------------------------------------
 
 # create 1st collection of vectors
 qdrant_collection_1 = os.environ['QDRANT_COLLECTION_1']
+# if running the code for the first time, use this line
 vector_store_1 = create_vectorstore(qdrant_collection_1)
+
+# if running the code for the notebooks needed later, use this line
 # vector_store_1 = get_vectorstore(qdrant_collection_1)
 
 # ------------------------------------------------------
@@ -146,13 +161,14 @@ parent_retriever = ParentDocumentRetriever(
     docstore=store, 
     child_splitter=child_splitter,
     parent_splitter=parent_splitter,
+    search_kwargs = {"k": 10, "score_threshold" : 0.8}
     )
 
 # adding  documents into the Qdrant vector database in the 1st collection
 parent_retriever.add_documents(docs)
 
 # testing the retriever
-parent_retriever.invoke("How many credit hours is a Computer Science minor?")
+parent_retriever.invoke("What is SMU?")
 
 # ------------------------------------------------------
 
@@ -174,6 +190,7 @@ print(len(semantic_docs))
 # creating another instance of a vector store with a new collection using the function we made earlier
 qdrant_collection_2 = os.environ['QDRANT_COLLECTION_2']
 vector_store_2 = create_vectorstore(qdrant_collection_2)
+
 # vector_store_2 = get_vectorstore(qdrant_collection_2)
 
 # ------------------------------------------------------
@@ -184,11 +201,13 @@ from langchain.retrievers import EnsembleRetriever, BM25Retriever
 bm25_retriever = BM25Retriever.from_documents(semantic_docs)
 
 # vector_store_2.from_documents(semantic_docs, OpenAIEmbeddings())
-vector_store_2_retriever = vector_store_2.as_retriever()
+vector_store_2_retriever = vector_store_2.as_retriever(search_type="similarity_score_threshold",
+search_kwargs = {"k": 10, "score_threshold" : 0.8})
 
 # initialize the ensemble retriever
 ensemble_retriever = EnsembleRetriever(
-    retrievers=[bm25_retriever, vector_store_2_retriever], weights=[0.7, 0.3]
+    retrievers=[bm25_retriever, vector_store_2_retriever], 
+    weights=[0.7, 0.3]
 )
 
 # adding the semantically split docs into the vector store
@@ -215,7 +234,7 @@ qdrant_collection_0 = os.environ['QDRANT_COLLECTION_0']
 vector_store_0 = create_vectorstore(qdrant_collection_0)
 # vector_store_0 = get_vectorstore(qdrant_collection_0)
 
-vector_store_0_retriever = vector_store_0.as_retriever()
+vector_store_0_retriever = vector_store_0.as_retriever(search_kwargs = {"k": 10, "score_threshold" : 0.8})
 
 # adding the recursively split docs into the vector store
 vector_store_0_retriever.add_documents(normal_split_docs)
