@@ -7,7 +7,7 @@ from dotenv import find_dotenv, load_dotenv
 # Load environment variables from the .env files
 load_dotenv(find_dotenv(filename='SURF-Project_Optimizing-PerunaBot/setup/.env'))
 
-# ------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------------------
 
 # Here we will initialize langmsith for tracing and tracking
 
@@ -24,8 +24,7 @@ from langchain_openai import ChatOpenAI
 llm = ChatOpenAI()
 llm.invoke("What can you do?")
 
-# ------------------------------------------------------
-
+# --------------------------------------------------------------------------------------------------------------------------------
 
 # langchain imports
 from langchain.schema import Document
@@ -60,7 +59,7 @@ print(len(docs))
 print(docs[0].page_content[0:100])
 print(docs[0].metadata)
 
-# ------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------------------
 
 # importing qdrant
 from qdrant_client import qdrant_client
@@ -76,7 +75,7 @@ client = qdrant_client.QdrantClient(
     api_key = qdrant_api_key,
 )
 
-# ------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------------------
 
 # function to create a vector store based on the collection name
 from langchain_openai import OpenAIEmbeddings
@@ -130,17 +129,21 @@ def get_vectorstore(qdrant_collection_name):
     
     return vector_store
 
-# ------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------------------
 
 # create 1st collection of vectors
 qdrant_collection_1 = os.environ['QDRANT_COLLECTION_1']
-# if running the code for the first time, use this line
-vector_store_1 = create_vectorstore(qdrant_collection_1)
 
-# if running the code for the notebooks needed later, use this line
-# vector_store_1 = get_vectorstore(qdrant_collection_1)
 
-# ------------------------------------------------------
+collection_check_1 = False
+
+if client.get_collection(qdrant_collection_1):
+    vector_store_1 = get_vectorstore(qdrant_collection_1)
+    collection_check_1 = True
+else:
+    vector_store_1 = create_vectorstore(qdrant_collection_1)
+
+# --------------------------------------------------------------------------------------------------------------------------------
 
 # Parent Document Retriever Method
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -156,21 +159,26 @@ parent_splitter = RecursiveCharacterTextSplitter(chunk_size=750, chunk_overlap=5
 store = InMemoryStore()
 
 # retriever
-parent_retriever = ParentDocumentRetriever(
-    vectorstore=vector_store_1, 
-    docstore=store, 
-    child_splitter=child_splitter,
-    parent_splitter=parent_splitter,
-    search_kwargs = {"k": 10, "score_threshold" : 0.8}
-    )
+def create_parent_retriever():
+    parent_retriever = ParentDocumentRetriever(
+        vectorstore=vector_store_1, 
+        docstore=store, 
+        child_splitter=child_splitter,
+        parent_splitter=parent_splitter,
+        search_kwargs = {"k": 10, "score_threshold" : 0.8}
+        )
+    return parent_retriever
 
-# adding  documents into the Qdrant vector database in the 1st collection
-parent_retriever.add_documents(docs)
+parent_retriever = create_parent_retriever()
+
+if collection_check_1 == False:
+# adding  documents into the Qdrant vector database in the 1st collection if not already tehre
+    parent_retriever.add_documents(docs)
 
 # testing the retriever
 parent_retriever.invoke("What is SMU?")
 
-# ------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------------------
 
 # semantic text splitting method
 # do '%pip install langchain_experimental' if needed
@@ -185,24 +193,37 @@ semantic_docs = semantic_text_splitter.split_documents(docs)
 print(semantic_docs[0].page_content)
 print(len(semantic_docs))
 
-# ------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------------------
 
 # creating another instance of a vector store with a new collection using the function we made earlier
 qdrant_collection_2 = os.environ['QDRANT_COLLECTION_2']
-vector_store_2 = create_vectorstore(qdrant_collection_2)
 
-# vector_store_2 = get_vectorstore(qdrant_collection_2)
+collection_check_2 = False
 
-# ------------------------------------------------------
+# creating the third vector store and retriever
+if client.get_collection(qdrant_collection_2):
+    vector_store_2 = get_vectorstore(qdrant_collection_2)
+    collection_check_2 = True
+else:
+    vector_store_2 = create_vectorstore(qdrant_collection_2)
+
+# --------------------------------------------------------------------------------------------------------------------------------
+
+def create_vector_store_2_retriever():
+    vector_store_2_retriever = vector_store_2.as_retriever(search_type="similarity_score_threshold",
+                                                            search_kwargs = {"k": 10, "score_threshold" : 0.8})
+    return vector_store_2_retriever
+
+vector_store_2_retriever = create_vector_store_2_retriever()
+
+if collection_check_2 == False:
+    vector_store_2_retriever.add_documents(semantic_docs) # adding the semantically split docs into the vector store if not there already
+
+# --------------------------------------------------------------------------------------------------------------------------------
 
 from langchain.retrievers import EnsembleRetriever, BM25Retriever
-# we already imported the Qdrant vector store and OpenAI embeddings in a previous step
 
 bm25_retriever = BM25Retriever.from_documents(semantic_docs)
-
-# vector_store_2.from_documents(semantic_docs, OpenAIEmbeddings())
-vector_store_2_retriever = vector_store_2.as_retriever(search_type="similarity_score_threshold",
-search_kwargs = {"k": 10, "score_threshold" : 0.8})
 
 # initialize the ensemble retriever
 ensemble_retriever = EnsembleRetriever(
@@ -210,12 +231,9 @@ ensemble_retriever = EnsembleRetriever(
     weights=[0.7, 0.3]
 )
 
-# adding the semantically split docs into the vector store
-vector_store_2_retriever.add_documents(semantic_docs)
-
 ensemble_retriever.invoke("How many credit hours is a major in Computer Science?")
 
-# ------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------------------
 
 base_text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50, 
                                                 length_function=len, add_start_index=True)  
@@ -225,24 +243,35 @@ normal_split_docs = base_text_splitter.split_documents(docs)
 print(normal_split_docs[0].page_content)
 print(len(normal_split_docs))
 
-# ------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------------------
 
 # getting the collection name of the third vector store
 qdrant_collection_0 = os.environ['QDRANT_COLLECTION_0']
 
+collection_check_0 = False
+
 # creating the third vector store and retriever
-vector_store_0 = create_vectorstore(qdrant_collection_0)
-# vector_store_0 = get_vectorstore(qdrant_collection_0)
+if client.get_collection(qdrant_collection_0):
+    vector_store_0 = get_vectorstore(qdrant_collection_0)
+    collection_check_0 = True
+else:
+    vector_store_0 = create_vectorstore(qdrant_collection_0)
 
-vector_store_0_retriever = vector_store_0.as_retriever(search_kwargs = {"k": 10, "score_threshold" : 0.8})
+# --------------------------------------------------------------------------------------------------------------------------------
 
-# adding the recursively split docs into the vector store
-vector_store_0_retriever.add_documents(normal_split_docs)
+def create_vector_store_0_retriever():
+    vector_store_0_retriever = vector_store_0.as_retriever(search_kwargs = {"k": 10, "score_threshold" : 0.8})
+    return vector_store_0_retriever
+
+vector_store_0_retriever = create_vector_store_0_retriever()
+
+if collection_check_0 == False:
+    vector_store_0_retriever.add_documents(normal_split_docs) # adding split docs into the vector store
 
 # testing the retriever
 vector_store_0_retriever.invoke("How many credit hours is a major in Computer Science?")
 
-# ------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------------------
 
 # using the pandas library to work with excel file and convert it to a data frame
 import pandas as pd
@@ -274,7 +303,7 @@ for sheet_name in xlsx.sheet_names:
 # Display the list of generated CSV files and their metadata
 print(csv_files)
 
-# ------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------------------
 
 # Now turning each csv into a langchain document
 from langchain.document_loaders import CSVLoader
@@ -292,25 +321,27 @@ for csv_path, metadata in csv_files:
 # Display the first document as an example
 print(csv_documents[0])
 
-
-# ------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------------------
 
 # vector store collection 1 - uses parent/child text splitter with parent retriever
-parent_retriever.add_documents(csv_documents)
+if collection_check_1 == False:
+    parent_retriever.add_documents(csv_documents)
 
-# ------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------------------
 
 # vector store collection 2 - uses semantic text splitter (or chunker) with the ensemble retriever (BM25 + vector store as retriever)
 # uploaded to vector store using vector store as the retriever
-vector_store_2_retriever.add_documents(csv_documents)
+if collection_check_2 == False:
+    vector_store_2_retriever.add_documents(csv_documents)
 
-# ------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------------------
 
 # vector stoer collection 0 - uses the recursive chatacter text splitter with vector store as the retriever
 # base option from last project
-vector_store_0_retriever.add_documents(csv_documents)
+if collection_check_0 == False:
+    vector_store_0_retriever.add_documents(csv_documents)
 
-# ------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------------------
 
 def get_all_langchain_docs():
   return {
