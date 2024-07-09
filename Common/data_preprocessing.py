@@ -211,7 +211,7 @@ else:
 
 def create_vector_store_2_retriever():
     vector_store_2_retriever = vector_store_2.as_retriever(search_type="similarity_score_threshold",
-                                                            search_kwargs = {"k": 10, "score_threshold" : 0.8})
+                                                            search_kwargs = {"k": 5, "score_threshold" : 0.75})
     return vector_store_2_retriever
 
 vector_store_2_retriever = create_vector_store_2_retriever()
