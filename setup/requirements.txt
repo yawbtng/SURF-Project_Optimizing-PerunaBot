@@ -5,6 +5,7 @@ langchain
 langchain-core
 langchain-community
 langchain-openai
+langchainhub
 langchain-experimental
 langsmith
 chainlit
