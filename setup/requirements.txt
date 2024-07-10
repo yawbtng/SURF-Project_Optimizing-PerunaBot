@@ -16,4 +16,3 @@ rank_bm25
 pandas
 giskard[llm]
 mlflow
-nbimporter
