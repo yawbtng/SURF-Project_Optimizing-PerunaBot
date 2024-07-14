@@ -378,11 +378,11 @@ vector_store_0_retriever = vector_store_0.as_retriever(search_kwargs = {"k": 8, 
 
 # Add documents to the third vector store if necessary
 if collection_check_0 == False:
-        vector_store_0_retriever.add_documents(semantic_docs) # adding the semantically split docs into the vector store if not there already
+        vector_store_0_retriever.add_documents(normal_split_docs) # adding the semantically split docs into the vector store if not there already
         vector_store_0_retriever.add_documents(csv_documents) # adding csv docs to vectorstore 
 elif collection_check_0 == True:
     if client.get_collection(qdrant_collection_0).vectors_count == None:
-      vector_store_2_retriever.add_documents(semantic_docs) # adding the semantically split docs into the vector store if not there already
+      vector_store_2_retriever.add_documents(normal_split_docs) # adding the semantically split docs into the vector store if not there already
       vector_store_2_retriever.add_documents(csv_documents) # adding csv docs to vectorstore
 
 # Test the third vector store retriever
@@ -430,5 +430,3 @@ all_data = {
 # Serialize the dictionary to a JSON file
 with open('data_preprocessing_langchain_objects.json', 'w') as f:
     json.dump(dumpd(all_data), f, indent=2)
-
-
