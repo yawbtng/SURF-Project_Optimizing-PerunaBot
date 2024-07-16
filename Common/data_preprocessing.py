@@ -416,9 +416,6 @@ def get_all_retrievers():
 
 #________________________________________________________________________________________________________________________________
 
-import json
-from langchain_core.load import dumpd
-
 # Collecting needed langchain objects into a dictionary
 all_data = {
     'pdf_docs': docs,
@@ -427,6 +424,9 @@ all_data = {
     'normal_split_docs': normal_split_docs,
 }
 
-# Serialize the dictionary to a JSON file
-with open('data_preprocessing_langchain_objects.json', 'w') as f:
-    json.dump(dumpd(all_data), f, indent=2)
+import shelve
+
+# Serialize the LangChain documentation to a JSON file
+with shelve.open("data_preprocessing_langchain_docs.db") as db:
+    for key, value in all_data.items():
+        db[key] = value
