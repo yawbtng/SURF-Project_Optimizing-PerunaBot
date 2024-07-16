@@ -6,7 +6,7 @@ from qdrant_client import qdrant_client
 from qdrant_client.http import models
 from langchain_openai import OpenAIEmbeddings
 import json
-from langchain_core.load import load
+import shelve
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
@@ -17,11 +17,17 @@ from langchain_core.messages import HumanMessage, AIMessage
 load_dotenv(find_dotenv(filename='SURF-Project_Optimizing-PerunaBot/setup/.env'))
 
 # Initialize API keys and environment variables using 'import os'
+# Qdrant vector db
 qdrant_host = os.environ['QDRANT_HOST']
 qdrant_api_key = os.environ['QDRANT_API_KEY']
-openai_api_key = os.environ['OPENAI_API_KEY']
 qdrant_collection_0 = os.environ['QDRANT_COLLECTION_0']
+
+# OpenAI API
+openai_api_key = os.environ['OPENAI_API_KEY']
+
+# langsmith
 langsmith_api_key = os.environ["LANGSMITH_API_KEY"]
+os.environ["LANGCHAIN_TRACING_V2"]
 langchain_endpoint = os.environ["LANGCHAIN_ENDPOINT"]
 langsmith_project = os.environ["LANGCHAIN_PROJECT"]
 
@@ -45,27 +51,24 @@ def get_vectorstore(qdrant_collection_name):
 
 # Initialize vector store for collection 0 using 'get_vectorstore' function
 vector_store_0 = get_vectorstore(qdrant_collection_0)
-vector_store_0_retriever = vector_store_0.as_retriever
+vector_store_0_retriever = vector_store_0.as_retriever(search_kwargs = {"k": 8, "score_threshold" : 0.75})
 
 
-# Load serialized data from JSON files using 'import json' and 'from langchain_core.load import load'
-with open('C:/Users/yawbt/OneDrive/Documents/GitHub/SURF-Project_Optimizing-PerunaBot/Common/data_preprocessing_langchain_objects.json', 'r') as file:
-    serialized_data = json.load(file)
+# Load the LangChain documents from the shelve file
+with shelve.open("../Common/serialized_data/data_preprocessing_langchain_docs.db") as db:
+    langchain_docs_loaded = {key: db[key] for key in db}
 
-# Revive the LangChain docs from the serialized data
-revived_data = load(serialized_data)
-csv_docs = revived_data['csv_docs']
-normal_split_docs = revived_data['normal_split_docs']
+csv_docs = langchain_docs_loaded['csv_docs']
+normal_split_docs = langchain_docs_loaded["normal_split_docs"]
 
 
-# Load serialized prompts from JSON file
-with open('C:/Users/yawbt/OneDrive/Documents/GitHub/SURF-Project_Optimizing-PerunaBot/OpenAI_model_with_only_RAG/prompts.json', 'r') as file:
-    serialized_prompts = json.load(file)
+# Load the prompts from the JSON file
+with open("prompts.json", "r") as json_file:
+    prompts = json.load(json_file)
 
-# Retrieve the prompts
-retrieved_prompts = load(serialized_prompts)
-condense_question_system_template = retrieved_prompts["condense_question_system_template"]
-chatbot_personality = retrieved_prompts["chatbot_personality"]
+# Access the prompts as Python objects
+condense_question_system_template = prompts["condense_question_system_template"]
+chatbot_personality = prompts["chatbot_personality"]
 
 
 # Create prompt templates using 'from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder'
@@ -87,7 +90,7 @@ qa_prompt = ChatPromptTemplate.from_messages(
 
 
 # Configure language model using 'from langchain_openai import ChatOpenAI'
-llm = ChatOpenAI(model="gpt-4o", temperature=0, max_tokens=750, timeout=None, max_retries=2)
+llm = ChatOpenAI(model="gpt-4o", temperature=0.25, max_tokens=750, timeout=None, max_retries=2)
 
 
 # Define a function to create a chain based on each retriever using 'from langchain.chains import create_history_aware_retriever, create_retrieval_chain' 
