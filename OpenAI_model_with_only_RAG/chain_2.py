@@ -118,7 +118,8 @@ def create_chain(vector_store_retriever):
     return convo_qa_chain
 
 # Create chain for collection 2 using 'ensemble_retriever'
-chain_2 = create_chain(ensemble_retriever)
+ensemble_retriever_chain_2 = create_chain(ensemble_retriever)
+ensemble_retriever_chain_2 = ensemble_retriever_chain_2.with_config({"run_name": "PerunaBot 2"})
 
 # Define a function to process chat input and return response using 'from langchain_core.messages import HumanMessage, AIMessage'
 def process_chat(chain, question, chat_history):
@@ -126,7 +127,10 @@ def process_chat(chain, question, chat_history):
     response = chain.invoke({
         "chat_history": chat_history,
         "input": question,
-    })
+    }, {"tags": ["chain_2"], 
+        "metadata": {"retriever": "ensemble retriever", 
+                     "components & weights": "(bm25 + vector store) [0.5, 0.5]",
+                     "collection": "smu_data-2"}})
     return response["answer"]
 
 if __name__ == '__main__':
@@ -143,7 +147,7 @@ if __name__ == '__main__':
             check_2 = False
             chat_history_2.clear()
         else:
-            response = process_chat(chain_2, user_input, chat_history_2)
+            response = process_chat(ensemble_retriever_chain_2, user_input, chat_history_2)
             chat_history_2.append(HumanMessage(content=user_input)) # Uses 'from langchain_core.messages import HumanMessage'
             chat_history_2.append(AIMessage(content=response)) # Uses 'from langchain_core.messages import AIMessage'
             print("User: ", user_input)
