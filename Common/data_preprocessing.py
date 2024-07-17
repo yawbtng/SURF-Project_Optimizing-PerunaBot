@@ -33,11 +33,12 @@ langsmith_client = Client()
 from langchain_community.document_loaders import PyPDFLoader
 
 # file paths of PDFs to be used
-pdf_paths = ['C:/Users/yawbt/OneDrive/Documents/GitHub/SURF-Project_Optimizing-PerunaBot/Data/20232024 Undergraduate Catalog91123.pdf',
-             'C:/Users/yawbt/OneDrive/Documents/GitHub/SURF-Project_Optimizing-PerunaBot/Data/Official University Calendar 2023-2024.pdf',
-             'C:/Users/yawbt/OneDrive/Documents/GitHub/SURF-Project_Optimizing-PerunaBot/Data/2023_PerunaPassport.pdf',
-             'C:/Users/yawbt/OneDrive/Documents/GitHub/SURF-Project_Optimizing-PerunaBot/Data/SMU Student Handbook 23-24.pdf',
-             'C:/Users/yawbt/OneDrive/Documents/GitHub/SURF-Project_Optimizing-PerunaBot/Data/SMUCampusGuideFactsMap.pdf'
+# file paths of PDFs to be used
+pdf_paths = ['../Data/RAG Knowledge Base/20232024 Undergraduate Catalog91123.pdf',
+             '../Data/RAG Knowledge Base/Official University Calendar 2023-2024.pdf',
+             '../Data/RAG Knowledge Base/2023_PerunaPassport.pdf',
+             '../Data/RAG Knowledge Base/SMU Student Handbook 23-24.pdf',
+             '../Data/RAG Knowledge Base/SMUCampusGuideFactsMap.pdf',
              ]
 
 # Function to load PDFs using LangChain's PyPDFLoader
@@ -68,7 +69,7 @@ print(docs[0].metadata)
 import pandas as pd
 
 # Load the Excel file
-excel_path = 'C:/Users/yawbt/OneDrive/Documents/GitHub/SURF-Project_Optimizing-PerunaBot/Data/SMU FAQs.xlsx'
+excel_path = '../Data/RAG Knowledge Base/SMU FAQs.xlsx'
 xlsx = pd.ExcelFile(excel_path)
 
 # checking to see if loading the file worked
@@ -87,7 +88,7 @@ for sheet_name in xlsx.sheet_names:
     df = pd.read_excel(xlsx, sheet_name=sheet_name, skiprows=1)
     
     # Save the DataFrame to a CSV file
-    csv_path = f'C:/Users/yawbt/OneDrive/Documents/GitHub/SURF-Project_Optimizing-PerunaBot/Data/{sheet_name}.csv'
+    csv_path = f'../Data/RAG Knowledge Base/{sheet_name}.csv'
     df.to_csv(csv_path, index=False, encoding='utf-8')
     csv_files.append((csv_path, metadata))
 
