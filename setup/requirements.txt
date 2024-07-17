@@ -15,4 +15,4 @@ huggingface_hub
 rank_bm25
 pandas
 giskard[llm]
-mlflow
+ragas
