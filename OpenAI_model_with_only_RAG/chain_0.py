@@ -106,8 +106,9 @@ def create_chain(vector_store_retriever):
     return convo_qa_chain
 
 # Create chain for collection 0
-chain_0 = create_chain(vector_store_0_retriever)
+base_retriever_chain_0 = create_chain(vector_store_0_retriever)
 
+base_retriever_chain_0 = base_retriever_chain_0.with_config({"run_name": "PerunaBot 0"})
 
 # Define a function to process chat input and return response using 'from langchain_core.messages import HumanMessage, AIMessage'
 def process_chat(chain, question, chat_history):
@@ -115,7 +116,9 @@ def process_chat(chain, question, chat_history):
     response = chain.invoke({
         "chat_history": chat_history,
         "input": question,
-    })
+    }, {"tags": ["chain_0"], 
+        "metadata": {"retriever": "base retriever (aka vector store as retriever)", 
+                     "collection": "smu_data-0"}})
     return response["answer"]
 
 
@@ -133,7 +136,7 @@ if __name__ == '__main__':
             check_0 = False
             chat_history_0.clear()
         else:
-            response = process_chat(chain_0, user_input, chat_history_0)
+            response = process_chat(base_retriever_chain_0, user_input, chat_history_0)
             chat_history_0.append(HumanMessage(content=user_input)) # Uses 'from langchain_core.messages import HumanMessage'
             chat_history_0.append(AIMessage(content=response)) # Uses 'from langchain_core.messages import AIMessage'
             print("User: ", user_input)
