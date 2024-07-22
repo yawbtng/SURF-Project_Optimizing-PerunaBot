@@ -68,13 +68,13 @@ vector_store_1 = get_vectorstore(qdrant_collection_1)
 # Configure text splitters and in-memory storage using 'from langchain.text_splitter import RecursiveCharacterTextSplitter' and 'from langchain.storage import InMemoryStore'
 child_splitter = RecursiveCharacterTextSplitter(chunk_size=250, chunk_overlap=25, length_function=len, add_start_index=True)
 parent_splitter = RecursiveCharacterTextSplitter(chunk_size=750, chunk_overlap=50, length_function=len, add_start_index=True)
-store = InMemoryStore()
+store_in_memory = InMemoryStore()
 
 # Define a function to create a parent document retriever using 'from langchain.retrievers import ParentDocumentRetriever'
 def create_parent_retriever():
     parent_retriever = ParentDocumentRetriever(
         vectorstore=vector_store_1, 
-        docstore=store, 
+        docstore=store_in_memory, 
         child_splitter=child_splitter,
         parent_splitter=parent_splitter,
         search_kwargs={"k": 8}
@@ -85,7 +85,7 @@ def create_parent_retriever():
 def create_custom_parent_retriever():
     parent_retriever = CustomParentDocumentRetriever(
         vectorstore=vector_store_1, 
-        docstore=store, 
+        docstore=store_in_memory, 
         child_splitter=child_splitter,
         parent_splitter=parent_splitter,
         search_kwargs={"k": 10}
@@ -139,16 +139,17 @@ def create_chain(vector_store_retriever):
 # Create chain for collection 1
 parent_retriever_chain_1 = create_chain(parent_retriever)
 parent_retriever_chain_1 = parent_retriever_chain_1.with_config({"run_name": "PerunaBot 1"})
-
+parent_retriever_chain_1 = parent_retriever_chain_1.with_config({"tags": ["chain_1"], 
+                                                                "metadata": {"retriever": "parent retriever", 
+                                                                             "collection": "smu_data-1", 
+                                                                             "llm": "gpt-4o"}})
 # Define a function to process chat input and return response using 'from langchain_core.messages import HumanMessage, AIMessage'
 def process_chat(chain, question, chat_history):
     # Process chat input and return response
     response = chain.invoke({
         "chat_history": chat_history,
         "input": question,
-    }, {"tags": ["chain_1"], 
-        "metadata": {"retriever": "parent retriever", 
-                     "collection": "smu_data-1"}})
+    })
     return response["answer"]
 
 if __name__ == '__main__':
@@ -170,3 +171,54 @@ if __name__ == '__main__':
             chat_history_1.append(AIMessage(content=response)) # Uses 'from langchain_core.messages import AIMessage'
             print("User: ", user_input)
             print("PerunaBot 1: ", response)
+
+# ____________________________________________________________________________
+# Chain with stateful chat message history
+
+from langchain_community.chat_message_histories import ChatMessageHistory
+from langchain_core.chat_history import BaseChatMessageHistory
+from langchain_core.runnables.history import RunnableWithMessageHistory
+import uuid
+
+### Statefully manage chat history ###
+store = {}
+
+def get_session_history(session_id: str) -> BaseChatMessageHistory:
+    if session_id not in store:
+        store[session_id] = ChatMessageHistory()
+    return store[session_id]
+
+parent_retriever_chain_1_rag = RunnableWithMessageHistory(
+    parent_retriever_chain_1,
+    get_session_history,
+    input_messages_key="input",
+    history_messages_key="chat_history",
+    output_messages_key="answer",
+)
+
+def run_chain_1(question):
+    chat_history_0 = []
+    response = parent_retriever_chain_1_rag.invoke(
+        {"input": question},
+        config = {"configurable": {"session_id": uuid.uuid4().hex}}
+    )
+    return response["answer"]
+
+# ____________________________________________________________________________
+# Chain without history for evaluation
+from langchain_core.output_parsers import MarkdownListOutputParser
+from langchain_core.runnables import RunnablePassthrough
+
+generation_chain = qa_prompt | llm | MarkdownListOutputParser()
+parent_retriever_eval_chain_1 = {
+    "context": parent_retriever,
+    "question": RunnablePassthrough(),
+} | RunnablePassthrough.assign(output = generation_chain)
+
+# Configure the chain
+parent_retriever_eval_chain_1 = parent_retriever_eval_chain_1.with_config({"run_name": "PerunaBot 1 Eval"})
+parent_retriever_eval_chain_1 = parent_retriever_eval_chain_1.with_config({"tags": ["chain_1"], 
+                                                                "metadata": {"retriever": "parent retriever", 
+                                                                             "collection": "smu_data-1", 
+                                                                             "llm": "gpt-4o"}})
+ # ____________________________________________________________________________
