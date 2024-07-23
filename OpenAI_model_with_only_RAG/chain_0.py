@@ -92,6 +92,7 @@ qa_prompt = ChatPromptTemplate.from_messages(
 # Configure language model using 'from langchain_openai import ChatOpenAI'
 llm = ChatOpenAI(model="gpt-4o", temperature=0.25, max_tokens=750, timeout=None, max_retries=2)
 
+#____________________________________________________________________________
 
 # Define a function to create a chain based on each retriever using 'from langchain.chains import create_history_aware_retriever, create_retrieval_chain' 
 # and 'from langchain.chains.combine_documents import create_stuff_documents_chain'
@@ -108,10 +109,14 @@ def create_chain(vector_store_retriever):
 # Create chain for collection 0
 base_retriever_chain_0 = create_chain(vector_store_0_retriever)
 base_retriever_chain_0 = base_retriever_chain_0.with_config({"run_name": "PerunaBot 0"})
-base_retriever_chain_0 = base_retriever_chain_0.with_config({"tags": ["chain_0"], 
-                                                            "metadata": {"retriever": "base retriever (aka vector store as retriever)", 
-                                                                         "collection": "smu_data-0", 
-                                                                         "llm": "gpt-4o"}})
+base_retriever_chain_0 = base_retriever_chain_0.with_config({
+    "tags": ["chain_0"], 
+    "metadata": {
+        "retriever": "base retriever (aka vector store as retriever)", 
+        "collection": "smu_data-0", 
+        "llm": "gpt-4o"
+        }
+})
 
 # Define a function to process chat input and return response using 'from langchain_core.messages import HumanMessage, AIMessage'
 def process_chat(chain, question, chat_history):
@@ -143,52 +148,35 @@ if __name__ == '__main__':
             print("User: ", user_input)
             print("PerunaBot 0: ", response)
 
-# ____________________________________________________________________________
-# Chain with stateful chat message history
-
-from langchain_community.chat_message_histories import ChatMessageHistory
-from langchain_core.chat_history import BaseChatMessageHistory
-from langchain_core.runnables.history import RunnableWithMessageHistory
-import uuid
-
-### Statefully manage chat history ###
-store = {}
-
-def get_session_history(session_id: str) -> BaseChatMessageHistory:
-    if session_id not in store:
-        store[session_id] = ChatMessageHistory()
-    return store[session_id]
-
-base_retriever_chain_0_rag = RunnableWithMessageHistory(
-    base_retriever_chain_0,
-    get_session_history,
-    input_messages_key="input",
-    history_messages_key="chat_history",
-    output_messages_key="answer",
-)
-
-def run_chain_0(question):
-    chat_history_0 = []
-    response = base_retriever_chain_0_rag.invoke(
-        {"input": question},
-        config = {"configurable": {"session_id": uuid.uuid4().hex}}
-    )
-    return response["answer"]
 
 # ____________________________________________________________________________
 # Chain without history for evaluation
 from langchain_core.output_parsers import MarkdownListOutputParser
 from langchain_core.runnables import RunnablePassthrough
+from operator import itemgetter
+from langchain_core.output_parsers import StrOutputParser
 
-generation_chain = qa_prompt | llm | MarkdownListOutputParser()
-base_retriever_eval_chain_0 = {
-    "context": vector_store_0_retriever,
-    "question": RunnablePassthrough(),
-} | RunnablePassthrough.assign(output = generation_chain)
+new_qa_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", chatbot_personality),
+        ("user", "{question}"),
+    ]
+)
+
+generation_chain = new_qa_prompt | llm | StrOutputParser()
+base_retriever_eval_chain_0 = (
+    {"context": itemgetter("question") | vector_store_0_retriever,
+     "question": itemgetter("question")} 
+     | RunnablePassthrough.assign(output = generation_chain))
 
 base_retriever_eval_chain_0 = base_retriever_eval_chain_0.with_config({"run_name": "PerunaBot 0 Eval"})
-base_retriever_eval_chain_0 = base_retriever_eval_chain_0.with_config({"tags": ["chain_0"], 
-                                                            "metadata": {"retriever": "base retriever (aka vector store as retriever)", 
-                                                                         "collection": "smu_data-0", 
-                                                                         "llm": "gpt-4o"}})
+base_retriever_eval_chain_0 = base_retriever_eval_chain_0.with_config({
+    "tags": ["chain_0"], 
+    "metadata": {
+        "retriever": "base retriever (aka vector store as retriever)", 
+        "collection": "smu_data-0", 
+        "llm": "gpt-4o"
+        }
+})
+base_retriever_eval_chain_0.invoke({"question": "What are some good resources on campus?"})
  # ____________________________________________________________________________

@@ -76,6 +76,7 @@ ensemble_retriever = EnsembleRetriever(
     weights=[0.5, 0.5]
 )
 
+ensemble_retriever.invoke("What if I don't know what to major in?")
 
 # Load the prompts from the JSON file
 with open("prompts.json", "r") as json_file:
@@ -120,11 +121,15 @@ def create_chain(vector_store_retriever):
 # Create chain for collection 2 using 'ensemble_retriever'
 ensemble_retriever_chain_2 = create_chain(ensemble_retriever)
 ensemble_retriever_chain_2 = ensemble_retriever_chain_2.with_config({"run_name": "PerunaBot 2"})
-ensemble_retriever_chain_2 = ensemble_retriever_chain_2.with_config({"tags": ["chain_2"], 
-                                                                    "metadata": {"retriever": "ensemble retriever", 
-                                                                                 "components & weights": "(bm25 + vector store) [0.5, 0.5]",
-                                                                                 "collection": "smu_data-2", 
-                                                                                 "llm": "gpt-4o"}})
+ensemble_retriever_chain_2 = ensemble_retriever_chain_2.with_config({
+    "tags": ["chain_2"], 
+    "metadata": {
+        "retriever": "ensemble retriever", 
+        "components & weights": "(bm25 + vector store) [0.5, 0.5]",
+        "collection": "smu_data-2", 
+        "llm": "gpt-4o"
+    }
+})
 
 # Define a function to process chat input and return response using 'from langchain_core.messages import HumanMessage, AIMessage'
 def process_chat(chain, question, chat_history):
@@ -156,54 +161,37 @@ if __name__ == '__main__':
             print("PerunaBot 2: ", response)
 
 # ____________________________________________________________________________
-# Chain with stateful chat message history
-
-from langchain_community.chat_message_histories import ChatMessageHistory
-from langchain_core.chat_history import BaseChatMessageHistory
-from langchain_core.runnables.history import RunnableWithMessageHistory
-import uuid
-
-### Statefully manage chat history ###
-store = {}
-
-def get_session_history(session_id: str) -> BaseChatMessageHistory:
-    if session_id not in store:
-        store[session_id] = ChatMessageHistory()
-    return store[session_id]
-
-ensemble_retriever_chain_2_rag = RunnableWithMessageHistory(
-    ensemble_retriever_chain_2,
-    get_session_history,
-    input_messages_key="input",
-    history_messages_key="chat_history",
-    output_messages_key="answer",
-)
-
-def run_chain_2(question):
-    chat_history_0 = []
-    response = ensemble_retriever_chain_2_rag.invoke(
-        {"input": question},
-        config = {"configurable": {"session_id": uuid.uuid4().hex}}
-    )
-    return response["answer"]
-
-# ____________________________________________________________________________
 
 # Chain without history for evaluation
 from langchain_core.output_parsers import MarkdownListOutputParser
 from langchain_core.runnables import RunnablePassthrough
+from operator import itemgetter
+from langchain_core.output_parsers import StrOutputParser
 
-generation_chain = qa_prompt | llm | MarkdownListOutputParser()
-ensemble_retriever_eval_chain_2 = {
-    "context": ensemble_retriever,
-    "question": RunnablePassthrough(),
-} | RunnablePassthrough.assign(output = generation_chain)
+new_qa_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", chatbot_personality),
+        ("user", "{question}"),
+    ]
+)
+
+generation_chain = new_qa_prompt | llm | StrOutputParser()
+ensemble_retriever_eval_chain_2 = (
+    {"context": itemgetter("question") | ensemble_retriever,
+     "question": itemgetter("question")} 
+     | RunnablePassthrough.assign(output = generation_chain))
 
 
 # Configure the chain
 ensemble_retriever_eval_chain_2 = ensemble_retriever_eval_chain_2.with_config({"run_name": "PerunaBot 2 Eval"})
-ensemble_retriever_eval_chain_2 = ensemble_retriever_eval_chain_2.with_config({"tags": ["chain_2"], 
-                                                                "metadata": {"retriever": "ensemble retriever", 
-                                                                             "collection": "smu_data-2", 
-                                                                             "llm": "gpt-4o"}})
+ensemble_retriever_eval_chain_2 = ensemble_retriever_eval_chain_2.with_config({
+    "tags": ["chain_2"], 
+    "metadata": {
+        "retriever": "ensemble retriever", 
+        "collection": "smu_data-2", 
+        "llm": "gpt-4o"
+        }
+})
+
+ensemble_retriever_eval_chain_2.invoke({"question": "What if I can't afford to go to SMU?"})
  # ____________________________________________________________________________

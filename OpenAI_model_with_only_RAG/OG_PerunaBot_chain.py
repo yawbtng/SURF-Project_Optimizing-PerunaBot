@@ -12,7 +12,7 @@ from langchain_openai import ChatOpenAI
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.messages import HumanMessage, AIMessage
-
+from langchain import hub
 
 
 # Load environment variables from the .env file using 'from dotenv import find_dotenv, load_dotenv'
@@ -76,9 +76,8 @@ If you don't know the answer, just say that you don't know, don't try to make up
 
 {context}
 
-Question: {question}
+Question: {input}
 """
-prompt = ChatPromptTemplate.from_template(template)
 
 
 # Create prompt templates using 'from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder'
@@ -102,10 +101,11 @@ qa_prompt = ChatPromptTemplate.from_messages(
 # Configure language model using 'from langchain_openai import ChatOpenAI'
 llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.25, max_tokens=750, timeout=None, max_retries=2)
 
+#____________________________________________________________________________
 
 # Define a function to create a chain based on each retriever using 'from langchain.chains import create_history_aware_retriever, create_retrieval_chain' 
 # and 'from langchain.chains.combine_documents import create_stuff_documents_chain'
-def create_chain(vector_store_retriever):
+def create_convo_chain(vector_store_retriever):
    
    #  Create a chain based on retriever
     history_aware_retriever = create_history_aware_retriever(
@@ -116,12 +116,16 @@ def create_chain(vector_store_retriever):
     return convo_qa_chain
 
 # Create chain for collection 0
-Original_PerunaBot_chain = create_chain(vector_store_0_retriever)
+Original_PerunaBot_chain = create_convo_chain(vector_store_0_retriever)
 Original_PerunaBot_chain = Original_PerunaBot_chain.with_config({"run_name": "OG PerunaBot"})
-Original_PerunaBot_chain = Original_PerunaBot_chain.with_config({"tags": ["OG_PerunaBot_chain"], 
-                                                                "metadata": {"retriever": "base retriever (aka vector store as retriever)", 
-                                                                             "collection": "smu_data-0", 
-                                                                             "llm": "gpt-3.5-turbo"}})
+Original_PerunaBot_chain = Original_PerunaBot_chain.with_config({
+    "tags": ["OG PerunaBot"],
+    "metadata": {
+        "retriever": "base retriever (aka vector store as retriever)",
+        "collection": "smu_data-0",
+        "llm": "gpt-3.5-turbo"
+    }
+})
 
 # Define a function to process chat input and return response using 'from langchain_core.messages import HumanMessage, AIMessage'
 def process_chat(chain, question, chat_history):
@@ -153,58 +157,32 @@ if __name__ == '__main__':
             print("User: ", user_input)
             print("OG PerunaBot: ", response)
 
-from langchain_community.chat_message_histories import ChatMessageHistory
-from langchain_core.chat_history import BaseChatMessageHistory
-from langchain_core.runnables.history import RunnableWithMessageHistory
-import uuid
-
-### Statefully manage chat history ###
-store = {}
-
-from typing import Optional
-
-def get_session_history(session_id: Optional[str] = None) -> BaseChatMessageHistory:
-    if session_id is None:
-        session_id = uuid.uuid4().hex
-    if session_id not in store:
-        store[session_id] = ChatMessageHistory()
-    return store[session_id]
-
-Original_PerunaBot_chain_rag = RunnableWithMessageHistory(
-    Original_PerunaBot_chain,
-    get_session_history,
-    input_messages_key="input",
-    history_messages_key="chat_history",
-    output_messages_key="answer",
-)
-
-def run_OG_chain(question: Optional[dict] = None, session_id: Optional[str] = None):
-    response = Original_PerunaBot_chain_rag.invoke(
-        {"input": question},
-        config={"configurable": {"session_id": session_id or uuid.uuid4().hex}}
-    )
-    return response
-
 # ____________________________________________________________________________
 # Chain without history for evaluation
-from langchain_core.output_parsers import MarkdownListOutputParser
-from langchain_core.runnables import RunnablePassthrough, RunnableLambda
+
+from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
+from operator import itemgetter
 
-# Function to combine retrieved documents into a single string
-def combine_documents(docs):
-    return "\n\n".join(doc.page_content for doc in docs)
+base_prompt = hub.pull("rlm/rag-prompt")
 
 
-generation_chain = qa_prompt | llm | StrOutputParser()
-Original_PerunaBot_eval_chain = {
-    "context": vector_store_0_retriever | RunnableLambda(combine_documents),
-    "input": RunnablePassthrough(),
-} | RunnablePassthrough.assign(output = generation_chain)
+generation_chain = base_prompt | llm | StrOutputParser()
+
+Original_PerunaBot_eval_chain = (
+    {"context": itemgetter("question") | vector_store_0_retriever,
+     "question": itemgetter("question")} 
+    | RunnablePassthrough.assign(output = generation_chain))
 
 # Configure the chain
 Original_PerunaBot_eval_chain = Original_PerunaBot_eval_chain.with_config({"run_name": "OG PerunaBot Eval"})
-Original_PerunaBot_eval_chain = Original_PerunaBot_eval_chain.with_config({"tags": ["OG_PerunaBot_eval_chain"], 
-                                                                          "metadata": {"retriever": "base retriever (aka vector store as retriever)", 
-                                                                                       "collection": "smu_data-0", "llm": "gpt-3.5-turbo"}})
-# ____________________________________________________________________________
+Original_PerunaBot_eval_chain = Original_PerunaBot_eval_chain.with_config({
+    "tags": ["OG_PerunaBot_eval_chain"],
+    "metadata": {
+        "retriever": "base retriever (aka vector store as retriever)",
+        "collection": "smu_data-0",
+        "llm": "gpt-3.5-turbo"
+    }
+})
+Original_PerunaBot_eval_chain.invoke({"question": "What is a good place to study?"})
+#________________________________________________________________
