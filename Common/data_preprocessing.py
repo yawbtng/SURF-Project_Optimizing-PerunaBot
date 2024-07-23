@@ -207,7 +207,7 @@ else:
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.retrievers import ParentDocumentRetriever
 # created a custom class in ParentDocumentRetriever that adds the documents to the docstore but not to the vectorstore
-from langchain.retrievers.parent_document_retriever import CustomParentDocumentRetriever
+
 
 from langchain.storage import InMemoryStore
 
@@ -230,18 +230,7 @@ def create_parent_retriever():
         )
     return parent_retriever
 
-# Function to create a custom parent document retriever
-def create_custom_parent_retriever():
-    parent_retriever = CustomParentDocumentRetriever(
-        vectorstore=vector_store_1, 
-        docstore=store, 
-        child_splitter=child_splitter,
-        parent_splitter=parent_splitter,
-        search_kwargs = {"k": 10}
-        )
-    return parent_retriever
-
-parent_retriever = create_custom_parent_retriever()
+parent_retriever = create_parent_retriever()
 
 #________________________________________________________________________________________________________________________________
 
@@ -261,13 +250,6 @@ elif collection_check_1 == True:
         parent_retriever.add_documents(docs)
         parent_retriever.add_documents(csv_documents)
         print("PDF docs and CSV docs added to doc store and vectorstore")
-
-    elif client.get_collection(qdrant_collection_1).vectors_count != None: 
-        # If the collection already exists and is not empty
-        # Only add docs to the document store to avoid duplicating vectors
-        parent_retriever.add_documents(docs, add_to_docstore=True, add_to_vectorstore=False)
-        parent_retriever.add_documents(csv_documents, add_to_docstore=True, add_to_vectorstore=False)
-        print("PDF docs and CSV docs added only to doc store")
 
 # testing the retriever
 parent_retriever.invoke("What is SMU")

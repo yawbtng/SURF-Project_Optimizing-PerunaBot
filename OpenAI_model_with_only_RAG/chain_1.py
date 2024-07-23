@@ -15,7 +15,6 @@ from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.retrievers import ParentDocumentRetriever
-from langchain.retrievers.parent_document_retriever import CustomParentDocumentRetriever
 from langchain.storage import InMemoryStore
 
 # Load environment variables from the .env file using 'from dotenv import find_dotenv, load_dotenv'
