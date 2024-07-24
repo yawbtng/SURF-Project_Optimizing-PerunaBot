@@ -1,7 +1,7 @@
 import os
 from dotenv import find_dotenv, load_dotenv
 from langsmith import Client
-from langchain_qdrant import Qdrant
+from langchain_qdrant.vectorstores import Qdrant
 from qdrant_client import qdrant_client
 from qdrant_client.http import models
 from langchain_openai import OpenAIEmbeddings
