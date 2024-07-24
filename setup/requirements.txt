@@ -5,6 +5,7 @@ langchain
 langchain-core
 langchain-community
 langchain-openai
+langchainhub
 langchain-experimental
 langsmith
 chainlit
@@ -14,4 +15,4 @@ huggingface_hub
 rank_bm25
 pandas
 giskard[llm]
-mlflow
+ragas
