@@ -1,7 +1,8 @@
 import os
 from dotenv import find_dotenv, load_dotenv
 from langsmith import Client
-from langchain_qdrant import Qdrant
+from langchain_qdrant.vectorstores import Qdrant
+from numpy import add
 from qdrant_client import qdrant_client
 from qdrant_client.http import models
 from langchain_openai import OpenAIEmbeddings
@@ -14,7 +15,6 @@ from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.retrievers import ParentDocumentRetriever
-from langchain.retrievers.parent_document_retriever import CustomParentDocumentRetriever
 from langchain.storage import InMemoryStore
 
 # Load environment variables from the .env file using 'from dotenv import find_dotenv, load_dotenv'
@@ -39,12 +39,16 @@ os.environ["LANGCHAIN_TRACING_V2"]
 langsmith_client = Client()
 
 
-# Load the LangChain documentation from the shelve file
+# Load the LangChain docs from the shelve file
 with shelve.open("../Common/serialized_data/data_preprocessing_langchain_docs.db") as db:
     langchain_docs_loaded = {key: db[key] for key in db}
 
 pdf_docs = langchain_docs_loaded['pdf_docs']
 csv_docs = langchain_docs_loaded['csv_docs']
+parent_retriever_memory_store = langchain_docs_loaded['parent_retriever_memory_store']
+parent_retriever_document_ids = langchain_docs_loaded['parent_retriever_document_ids']
+parent_retriever_in_memory_store_docs = langchain_docs_loaded['parent_retriever_in_memory_store_docs']
+parent_retriever_docs_dict = langchain_docs_loaded['parent_retriever_docs_dict']
 
 
 # Define a function to get vector store using 'from langchain_qdrant import Qdrant' and 'from qdrant_client import qdrant_client'
@@ -68,33 +72,23 @@ vector_store_1 = get_vectorstore(qdrant_collection_1)
 # Configure text splitters and in-memory storage using 'from langchain.text_splitter import RecursiveCharacterTextSplitter' and 'from langchain.storage import InMemoryStore'
 child_splitter = RecursiveCharacterTextSplitter(chunk_size=250, chunk_overlap=25, length_function=len, add_start_index=True)
 parent_splitter = RecursiveCharacterTextSplitter(chunk_size=750, chunk_overlap=50, length_function=len, add_start_index=True)
-store = InMemoryStore()
+store_in_memory = parent_retriever_memory_store
 
 # Define a function to create a parent document retriever using 'from langchain.retrievers import ParentDocumentRetriever'
 def create_parent_retriever():
     parent_retriever = ParentDocumentRetriever(
         vectorstore=vector_store_1, 
-        docstore=store, 
+        docstore=store_in_memory, # using deserialized docs from in_memory_store
         child_splitter=child_splitter,
         parent_splitter=parent_splitter,
         search_kwargs={"k": 8}
     )
     return parent_retriever
 
-# Function to create a custom parent document retriever using 'from langchain.retrievers.parent_document_retriever import CustomParentDocumentRetriever'
-def create_custom_parent_retriever():
-    parent_retriever = CustomParentDocumentRetriever(
-        vectorstore=vector_store_1, 
-        docstore=store, 
-        child_splitter=child_splitter,
-        parent_splitter=parent_splitter,
-        search_kwargs={"k": 10}
-    )
-    return parent_retriever
+# Create and configure parent document retriever
+parent_retriever = create_parent_retriever()
+parent_retriever.invoke("what research opportunities does SMU offer?")
 
-# Create and configure custom parent document retriever
-parent_retriever = create_custom_parent_retriever()
-parent_retriever.add_documents(pdf_docs + csv_docs, add_to_vectorstore=False)
 
 # Load the prompts from the JSON file
 with open("prompts.json", "r") as json_file:
@@ -122,13 +116,17 @@ qa_prompt = ChatPromptTemplate.from_messages(
     ]
 )
 
+
 # Configure language model using 'from langchain_openai import ChatOpenAI'
 llm = ChatOpenAI(model="gpt-4o", temperature=0.25, max_tokens=750, timeout=None, max_retries=2)
+
+#____________________________________________________________________________
 
 # Define a function to create a chain based on each retriever using 'from langchain.chains import create_history_aware_retriever, create_retrieval_chain' 
 # and 'from langchain.chains.combine_documents import create_stuff_documents_chain'
 def create_chain(vector_store_retriever):
-    # Create a chain based on retriever
+   
+   #  Create a chain based on retriever
     history_aware_retriever = create_history_aware_retriever(
         llm, vector_store_retriever, condense_question_prompt
     )
@@ -139,6 +137,14 @@ def create_chain(vector_store_retriever):
 # Create chain for collection 1
 parent_retriever_chain_1 = create_chain(parent_retriever)
 parent_retriever_chain_1 = parent_retriever_chain_1.with_config({"run_name": "PerunaBot 1"})
+parent_retriever_chain_1 = parent_retriever_chain_1.with_config({
+    "tags": ["chain_1"], 
+    "metadata": {
+        "retriever": "parent retriever", 
+        "collection": "smu_data-1", 
+        "llm": "gpt-4o"
+    }
+})
 
 # Define a function to process chat input and return response using 'from langchain_core.messages import HumanMessage, AIMessage'
 def process_chat(chain, question, chat_history):
@@ -146,9 +152,7 @@ def process_chat(chain, question, chat_history):
     response = chain.invoke({
         "chat_history": chat_history,
         "input": question,
-    }, {"tags": ["chain_1"], 
-        "metadata": {"retriever": "parent retriever", 
-                     "collection": "smu_data-1"}})
+    })
     return response["answer"]
 
 if __name__ == '__main__':
@@ -170,3 +174,37 @@ if __name__ == '__main__':
             chat_history_1.append(AIMessage(content=response)) # Uses 'from langchain_core.messages import AIMessage'
             print("User: ", user_input)
             print("PerunaBot 1: ", response)
+
+# ____________________________________________________________________________
+
+# Chain without history for evaluation
+from langchain_core.output_parsers import MarkdownListOutputParser
+from langchain_core.runnables import RunnablePassthrough
+from operator import itemgetter
+from langchain_core.output_parsers import StrOutputParser
+
+new_qa_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", chatbot_personality),
+        ("user", "{question}"),
+    ]
+)
+
+generation_chain = new_qa_prompt | llm | StrOutputParser()
+parent_retriever_eval_chain_1 = (
+    {"context": itemgetter("question") | parent_retriever,
+     "question": itemgetter("question")} 
+     | RunnablePassthrough.assign(output = generation_chain))
+
+# Configure the chain
+parent_retriever_eval_chain_1 = parent_retriever_eval_chain_1.with_config({"run_name": "PerunaBot 1 Eval"})
+parent_retriever_eval_chain_1 = parent_retriever_eval_chain_1.with_config({
+    "tags": ["chain_1"], 
+    "metadata": {
+        "retriever": "parent retriever", 
+        "collection": "smu_data-1", 
+        "llm": "gpt-4o"
+    }
+})
+parent_retriever_eval_chain_1.invoke({"question": "What is the best residential commons?"})
+ # ____________________________________________________________________________

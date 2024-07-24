@@ -1,7 +1,7 @@
 import os
 from dotenv import find_dotenv, load_dotenv
 from langsmith import Client
-from langchain_qdrant import Qdrant
+from langchain_qdrant.vectorstores import Qdrant
 from qdrant_client import qdrant_client
 from qdrant_client.http import models
 from langchain_openai import OpenAIEmbeddings
@@ -92,6 +92,7 @@ qa_prompt = ChatPromptTemplate.from_messages(
 # Configure language model using 'from langchain_openai import ChatOpenAI'
 llm = ChatOpenAI(model="gpt-4o", temperature=0.25, max_tokens=750, timeout=None, max_retries=2)
 
+#____________________________________________________________________________
 
 # Define a function to create a chain based on each retriever using 'from langchain.chains import create_history_aware_retriever, create_retrieval_chain' 
 # and 'from langchain.chains.combine_documents import create_stuff_documents_chain'
@@ -107,8 +108,15 @@ def create_chain(vector_store_retriever):
 
 # Create chain for collection 0
 base_retriever_chain_0 = create_chain(vector_store_0_retriever)
-
 base_retriever_chain_0 = base_retriever_chain_0.with_config({"run_name": "PerunaBot 0"})
+base_retriever_chain_0 = base_retriever_chain_0.with_config({
+    "tags": ["chain_0"], 
+    "metadata": {
+        "retriever": "base retriever (aka vector store as retriever)", 
+        "collection": "smu_data-0", 
+        "llm": "gpt-4o"
+        }
+})
 
 # Define a function to process chat input and return response using 'from langchain_core.messages import HumanMessage, AIMessage'
 def process_chat(chain, question, chat_history):
@@ -116,9 +124,7 @@ def process_chat(chain, question, chat_history):
     response = chain.invoke({
         "chat_history": chat_history,
         "input": question,
-    }, {"tags": ["chain_0"], 
-        "metadata": {"retriever": "base retriever (aka vector store as retriever)", 
-                     "collection": "smu_data-0"}})
+    })
     return response["answer"]
 
 
@@ -141,3 +147,36 @@ if __name__ == '__main__':
             chat_history_0.append(AIMessage(content=response)) # Uses 'from langchain_core.messages import AIMessage'
             print("User: ", user_input)
             print("PerunaBot 0: ", response)
+
+
+# ____________________________________________________________________________
+# Chain without history for evaluation
+from langchain_core.output_parsers import MarkdownListOutputParser
+from langchain_core.runnables import RunnablePassthrough
+from operator import itemgetter
+from langchain_core.output_parsers import StrOutputParser
+
+new_qa_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", chatbot_personality),
+        ("user", "{question}"),
+    ]
+)
+
+generation_chain = new_qa_prompt | llm | StrOutputParser()
+base_retriever_eval_chain_0 = (
+    {"context": itemgetter("question") | vector_store_0_retriever,
+     "question": itemgetter("question")} 
+     | RunnablePassthrough.assign(output = generation_chain))
+
+base_retriever_eval_chain_0 = base_retriever_eval_chain_0.with_config({"run_name": "PerunaBot 0 Eval"})
+base_retriever_eval_chain_0 = base_retriever_eval_chain_0.with_config({
+    "tags": ["chain_0"], 
+    "metadata": {
+        "retriever": "base retriever (aka vector store as retriever)", 
+        "collection": "smu_data-0", 
+        "llm": "gpt-4o"
+        }
+})
+base_retriever_eval_chain_0.invoke({"question": "What are some good resources on campus?"})
+ # ____________________________________________________________________________

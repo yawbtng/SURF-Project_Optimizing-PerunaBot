@@ -1,7 +1,7 @@
 import os
 from dotenv import find_dotenv, load_dotenv
 from langsmith import Client
-from langchain_qdrant import Qdrant
+from langchain_qdrant.vectorstores import Qdrant
 from qdrant_client import qdrant_client
 from qdrant_client.http import models
 from langchain_openai import OpenAIEmbeddings
@@ -76,6 +76,7 @@ ensemble_retriever = EnsembleRetriever(
     weights=[0.5, 0.5]
 )
 
+ensemble_retriever.invoke("What if I don't know what to major in?")
 
 # Load the prompts from the JSON file
 with open("prompts.json", "r") as json_file:
@@ -120,6 +121,15 @@ def create_chain(vector_store_retriever):
 # Create chain for collection 2 using 'ensemble_retriever'
 ensemble_retriever_chain_2 = create_chain(ensemble_retriever)
 ensemble_retriever_chain_2 = ensemble_retriever_chain_2.with_config({"run_name": "PerunaBot 2"})
+ensemble_retriever_chain_2 = ensemble_retriever_chain_2.with_config({
+    "tags": ["chain_2"], 
+    "metadata": {
+        "retriever": "ensemble retriever", 
+        "components & weights": "(bm25 + vector store) [0.5, 0.5]",
+        "collection": "smu_data-2", 
+        "llm": "gpt-4o"
+    }
+})
 
 # Define a function to process chat input and return response using 'from langchain_core.messages import HumanMessage, AIMessage'
 def process_chat(chain, question, chat_history):
@@ -127,10 +137,7 @@ def process_chat(chain, question, chat_history):
     response = chain.invoke({
         "chat_history": chat_history,
         "input": question,
-    }, {"tags": ["chain_2"], 
-        "metadata": {"retriever": "ensemble retriever", 
-                     "components & weights": "(bm25 + vector store) [0.5, 0.5]",
-                     "collection": "smu_data-2"}})
+    })
     return response["answer"]
 
 if __name__ == '__main__':
@@ -152,3 +159,39 @@ if __name__ == '__main__':
             chat_history_2.append(AIMessage(content=response)) # Uses 'from langchain_core.messages import AIMessage'
             print("User: ", user_input)
             print("PerunaBot 2: ", response)
+
+# ____________________________________________________________________________
+
+# Chain without history for evaluation
+from langchain_core.output_parsers import MarkdownListOutputParser
+from langchain_core.runnables import RunnablePassthrough
+from operator import itemgetter
+from langchain_core.output_parsers import StrOutputParser
+
+new_qa_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", chatbot_personality),
+        ("user", "{question}"),
+    ]
+)
+
+generation_chain = new_qa_prompt | llm | StrOutputParser()
+ensemble_retriever_eval_chain_2 = (
+    {"context": itemgetter("question") | ensemble_retriever,
+     "question": itemgetter("question")} 
+     | RunnablePassthrough.assign(output = generation_chain))
+
+
+# Configure the chain
+ensemble_retriever_eval_chain_2 = ensemble_retriever_eval_chain_2.with_config({"run_name": "PerunaBot 2 Eval"})
+ensemble_retriever_eval_chain_2 = ensemble_retriever_eval_chain_2.with_config({
+    "tags": ["chain_2"], 
+    "metadata": {
+        "retriever": "ensemble retriever", 
+        "collection": "smu_data-2", 
+        "llm": "gpt-4o"
+        }
+})
+
+ensemble_retriever_eval_chain_2.invoke({"question": "What if I can't afford to go to SMU?"})
+ # ____________________________________________________________________________

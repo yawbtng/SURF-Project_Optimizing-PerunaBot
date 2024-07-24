@@ -1,7 +1,7 @@
 import os
 from dotenv import find_dotenv, load_dotenv
 from langsmith import Client
-from langchain_qdrant import Qdrant
+from langchain_qdrant.vectorstores import Qdrant
 from qdrant_client import qdrant_client
 from qdrant_client.http import models
 from langchain_openai import OpenAIEmbeddings
@@ -12,6 +12,8 @@ from langchain_openai import ChatOpenAI
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.messages import HumanMessage, AIMessage
+from langchain import hub
+
 
 # Load environment variables from the .env file using 'from dotenv import find_dotenv, load_dotenv'
 load_dotenv(find_dotenv(filename='SURF-Project_Optimizing-PerunaBot/setup/.env'))
@@ -74,9 +76,8 @@ If you don't know the answer, just say that you don't know, don't try to make up
 
 {context}
 
-Question: {question}
+Question: {input}
 """
-prompt = ChatPromptTemplate.from_template(template)
 
 
 # Create prompt templates using 'from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder'
@@ -100,10 +101,11 @@ qa_prompt = ChatPromptTemplate.from_messages(
 # Configure language model using 'from langchain_openai import ChatOpenAI'
 llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.25, max_tokens=750, timeout=None, max_retries=2)
 
+#____________________________________________________________________________
 
 # Define a function to create a chain based on each retriever using 'from langchain.chains import create_history_aware_retriever, create_retrieval_chain' 
 # and 'from langchain.chains.combine_documents import create_stuff_documents_chain'
-def create_chain(vector_store_retriever):
+def create_convo_chain(vector_store_retriever):
    
    #  Create a chain based on retriever
     history_aware_retriever = create_history_aware_retriever(
@@ -113,9 +115,17 @@ def create_chain(vector_store_retriever):
     convo_qa_chain = create_retrieval_chain(history_aware_retriever, qa_chain)
     return convo_qa_chain
 
-# Create chain for collection 0
-Original_PerunaBot_chain_0 = create_chain(vector_store_0_retriever)
-Original_PerunaBot_chain_0 = Original_PerunaBot_chain_0.with_config({"run_name": "OG PerunaBot"})
+# Create chain for collection 0 
+Original_PerunaBot_chain = create_convo_chain(vector_store_0_retriever)
+Original_PerunaBot_chain = Original_PerunaBot_chain.with_config({"run_name": "OG PerunaBot"})
+Original_PerunaBot_chain = Original_PerunaBot_chain.with_config({
+    "tags": ["OG PerunaBot"],
+    "metadata": {
+        "retriever": "base retriever (aka vector store as retriever)",
+        "collection": "smu_data-0",
+        "llm": "gpt-3.5-turbo"
+    }
+})
 
 # Define a function to process chat input and return response using 'from langchain_core.messages import HumanMessage, AIMessage'
 def process_chat(chain, question, chat_history):
@@ -123,11 +133,8 @@ def process_chat(chain, question, chat_history):
     response = chain.invoke({
         "chat_history": chat_history,
         "input": question,
-    }, {"tags": ["OG_PerunaBot_chain"], 
-        "metadata": {"retriever": "base retriever (aka vector store as retriever)", 
-                     "collection": "smu_data-0"}})
+    })
     return response["answer"]
-
 
 if __name__ == '__main__':
     # Initialize chat history
@@ -144,9 +151,38 @@ if __name__ == '__main__':
             chat_history_0.clear()
             print("OG PerunaBot: Goodbye! Have a great day!")
         else:
-            response = process_chat(Original_PerunaBot_chain_0, user_input, chat_history_0)
+            response = process_chat(Original_PerunaBot_chain, user_input, chat_history_0)
             chat_history_0.append(HumanMessage(content=user_input)) # Uses 'from langchain_core.messages import HumanMessage'
             chat_history_0.append(AIMessage(content=response)) # Uses 'from langchain_core.messages import AIMessage'
             print("User: ", user_input)
             print("OG PerunaBot: ", response)
 
+# ____________________________________________________________________________
+# Chain without history for evaluation
+
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
+from operator import itemgetter
+
+base_prompt = hub.pull("rlm/rag-prompt")
+
+
+generation_chain = base_prompt | llm | StrOutputParser()
+
+Original_PerunaBot_eval_chain = (
+    {"context": itemgetter("question") | vector_store_0_retriever,
+     "question": itemgetter("question")} 
+    | RunnablePassthrough.assign(output = generation_chain))
+
+# Configure the chain
+Original_PerunaBot_eval_chain = Original_PerunaBot_eval_chain.with_config({"run_name": "OG PerunaBot Eval"})
+Original_PerunaBot_eval_chain = Original_PerunaBot_eval_chain.with_config({
+    "tags": ["OG_PerunaBot_eval_chain"],
+    "metadata": {
+        "retriever": "base retriever (aka vector store as retriever)",
+        "collection": "smu_data-0",
+        "llm": "gpt-3.5-turbo"
+    }
+})
+Original_PerunaBot_eval_chain.invoke({"question": "What is a good place to study?"})
+#________________________________________________________________
