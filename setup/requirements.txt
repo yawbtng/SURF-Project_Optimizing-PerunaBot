@@ -16,3 +16,5 @@ rank_bm25
 pandas
 giskard[llm]
 ragas
+jupyter
+ipykernel
