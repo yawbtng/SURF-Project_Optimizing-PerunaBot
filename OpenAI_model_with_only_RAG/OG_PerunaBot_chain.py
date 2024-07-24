@@ -115,7 +115,7 @@ def create_convo_chain(vector_store_retriever):
     convo_qa_chain = create_retrieval_chain(history_aware_retriever, qa_chain)
     return convo_qa_chain
 
-# Create chain for collection 0
+# Create chain for collection 0 
 Original_PerunaBot_chain = create_convo_chain(vector_store_0_retriever)
 Original_PerunaBot_chain = Original_PerunaBot_chain.with_config({"run_name": "OG PerunaBot"})
 Original_PerunaBot_chain = Original_PerunaBot_chain.with_config({
