@@ -56,7 +56,7 @@ def get_vectorstore(qdrant_collection_name):
     vector_store = Qdrant(
         client=client, 
         collection_name=qdrant_collection_name, 
-        embeddings=OpenAIEmbeddings(), # Uses 'from langchain_openai import OpenAIEmbeddings'
+        embedding=OpenAIEmbeddings(), # Uses 'from langchain_openai import OpenAIEmbeddings'
     )
     return vector_store
 

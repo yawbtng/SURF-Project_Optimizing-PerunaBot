@@ -134,7 +134,7 @@ client = qdrant_client.QdrantClient(
 # Import OpenAIEmbeddings and Qdrant from respective langchain modules
 
 from langchain_openai import OpenAIEmbeddings
-from langchain_qdrant import Qdrant
+from langchain_qdrant import QdrantVectorStore as Qdrant
 
 # Retrieve OpenAI API key from environment variables
 openai_api_key = os.environ['OPENAI_API_KEY']
@@ -162,7 +162,7 @@ def create_vectorstore(qdrant_collection_name):
     vector_store = Qdrant(
         client=client, 
         collection_name=qdrant_collection_name, 
-        embeddings=OpenAIEmbeddings(),
+        embedding=OpenAIEmbeddings(),
     )
   
     return vector_store
@@ -180,7 +180,7 @@ def get_vectorstore(qdrant_collection_name):
     vector_store = Qdrant(
         client=client, 
         collection_name=qdrant_collection_name, 
-        embeddings=OpenAIEmbeddings(),
+        embedding=OpenAIEmbeddings(),
     )
 
     return vector_store
