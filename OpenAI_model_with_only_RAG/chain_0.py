@@ -118,17 +118,20 @@ base_retriever_chain_0 = base_retriever_chain_0.with_config({
         }
 })
 
-# Define a function to process chat input and return response using 'from langchain_core.messages import HumanMessage, AIMessage'
-def process_chat(chain, question, chat_history):
-    # Process chat input and return response
-    response = chain.invoke({
-        "chat_history": chat_history,
-        "input": question,
-    })
-    return response["answer"]
+import uuid
+def chat_convo():
+    # session id for the convo
+    config = {"metadata": {"session_id": str(uuid.uuid4())}}    
 
+    # Define a function to process chat input and return response using 'from langchain_core.messages import HumanMessage, AIMessage'
+    def process_chat(chain, question, chat_history):
+        # Process chat input and return response
+        response = chain.invoke({
+            "chat_history": chat_history,
+            "input": question,
+        }, config=config)
+        return response["answer"]
 
-if __name__ == '__main__':
     # Initialize chat history
     chat_history_0 = []
 
@@ -148,6 +151,8 @@ if __name__ == '__main__':
             print("User: ", user_input)
             print("PerunaBot 0: ", response)
 
+if __name__ == '__main__':
+    chat_convo()
 
 # ____________________________________________________________________________
 # Chain without history for evaluation
@@ -178,5 +183,5 @@ base_retriever_eval_chain_0 = base_retriever_eval_chain_0.with_config({
         "llm": "gpt-4o"
         }
 })
-base_retriever_eval_chain_0.invoke({"question": "What are some good resources on campus?"})
+# base_retriever_eval_chain_0.invoke({"question": "What are some good resources on campus?"})
  # ____________________________________________________________________________

@@ -127,16 +127,21 @@ Original_PerunaBot_chain = Original_PerunaBot_chain.with_config({
     }
 })
 
-# Define a function to process chat input and return response using 'from langchain_core.messages import HumanMessage, AIMessage'
-def process_chat(chain, question, chat_history):
-    # Process chat input and return response
-    response = chain.invoke({
-        "chat_history": chat_history,
-        "input": question,
-    })
-    return response["answer"]
 
-if __name__ == '__main__':
+import uuid
+def chat_convo():
+    # session id for the convo
+    config = {"metadata": {"session_id": str(uuid.uuid4())}}    
+
+    # Define a function to process chat input and return response using 'from langchain_core.messages import HumanMessage, AIMessage'
+    def process_chat(chain, question, chat_history):
+        # Process chat input and return response
+        response = chain.invoke({
+            "chat_history": chat_history,
+            "input": question,
+        }, config=config)
+        return response["answer"]
+    
     # Initialize chat history
     chat_history_0 = []
 
@@ -157,6 +162,8 @@ if __name__ == '__main__':
             print("User: ", user_input)
             print("OG PerunaBot: ", response)
 
+if __name__ == '__main__':
+    chat_convo()
 # ____________________________________________________________________________
 # Chain without history for evaluation
 
@@ -184,5 +191,5 @@ Original_PerunaBot_eval_chain = Original_PerunaBot_eval_chain.with_config({
         "llm": "gpt-3.5-turbo"
     }
 })
-Original_PerunaBot_eval_chain.invoke({"question": "What is a good place to study?"})
+# Original_PerunaBot_eval_chain.invoke({"question": "What is a good place to study?"})
 #________________________________________________________________

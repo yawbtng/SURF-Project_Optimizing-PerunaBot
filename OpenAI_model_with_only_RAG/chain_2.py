@@ -131,16 +131,20 @@ ensemble_retriever_chain_2 = ensemble_retriever_chain_2.with_config({
     }
 })
 
-# Define a function to process chat input and return response using 'from langchain_core.messages import HumanMessage, AIMessage'
-def process_chat(chain, question, chat_history):
-    # Process chat input and return response
-    response = chain.invoke({
-        "chat_history": chat_history,
-        "input": question,
-    })
-    return response["answer"]
+import uuid
+def chat_convo():
+    # session id for the convo
+    config = {"metadata": {"session_id": str(uuid.uuid4())}}    
 
-if __name__ == '__main__':
+    # Define a function to process chat input and return response using 'from langchain_core.messages import HumanMessage, AIMessage'
+    def process_chat(chain, question, chat_history):
+        # Process chat input and return response
+        response = chain.invoke({
+            "chat_history": chat_history,
+            "input": question,
+        }, config=config)
+        return response["answer"]
+
     # Initialize chat history
     chat_history_2 = []
 
@@ -160,6 +164,8 @@ if __name__ == '__main__':
             print("User: ", user_input)
             print("PerunaBot 2: ", response)
 
+if __name__ == '__main__':
+    chat_convo()
 # ____________________________________________________________________________
 
 # Chain without history for evaluation
@@ -193,5 +199,5 @@ ensemble_retriever_eval_chain_2 = ensemble_retriever_eval_chain_2.with_config({
         }
 })
 
-ensemble_retriever_eval_chain_2.invoke({"question": "What if I can't afford to go to SMU?"})
+# ensemble_retriever_eval_chain_2.invoke({"question": "What if I can't afford to go to SMU?"})
  # ____________________________________________________________________________
