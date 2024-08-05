@@ -1,8 +1,7 @@
 import os
 from dotenv import find_dotenv, load_dotenv
 from langsmith import Client
-from langchain_qdrant.vectorstores import Qdrant
-from numpy import add
+from langchain_qdrant import QdrantVectorStore as Qdrant
 from qdrant_client import qdrant_client
 from qdrant_client.http import models
 from langchain_openai import OpenAIEmbeddings
@@ -62,7 +61,7 @@ def get_vectorstore(qdrant_collection_name):
     vector_store = Qdrant(
         client=client, 
         collection_name=qdrant_collection_name, 
-        embeddings=OpenAIEmbeddings(), # Uses 'from langchain_openai import OpenAIEmbeddings'
+        embedding=OpenAIEmbeddings(), # Uses 'from langchain_openai import OpenAIEmbeddings'
     )
     return vector_store
 
@@ -146,16 +145,20 @@ parent_retriever_chain_1 = parent_retriever_chain_1.with_config({
     }
 })
 
-# Define a function to process chat input and return response using 'from langchain_core.messages import HumanMessage, AIMessage'
-def process_chat(chain, question, chat_history):
-    # Process chat input and return response
-    response = chain.invoke({
-        "chat_history": chat_history,
-        "input": question,
-    })
-    return response["answer"]
+import uuid
+def chat_convo():
+    # session id for the convo
+    config = {"metadata": {"session_id": str(uuid.uuid4())}}    
 
-if __name__ == '__main__':
+    # Define a function to process chat input and return response using 'from langchain_core.messages import HumanMessage, AIMessage'
+    def process_chat(chain, question, chat_history):
+        # Process chat input and return response
+        response = chain.invoke({
+            "chat_history": chat_history,
+            "input": question,
+        }, config=config)
+        return response["answer"]
+    
     # Initialize chat history
     chat_history_1 = []
 
@@ -174,6 +177,9 @@ if __name__ == '__main__':
             chat_history_1.append(AIMessage(content=response)) # Uses 'from langchain_core.messages import AIMessage'
             print("User: ", user_input)
             print("PerunaBot 1: ", response)
+
+if __name__ == '__main__':
+    chat_convo()
 
 # ____________________________________________________________________________
 
@@ -206,5 +212,24 @@ parent_retriever_eval_chain_1 = parent_retriever_eval_chain_1.with_config({
         "llm": "gpt-4o"
     }
 })
-parent_retriever_eval_chain_1.invoke({"question": "What is the best residential commons?"})
+# parent_retriever_eval_chain_1.invoke({"question": "What is the best residential commons?"})
  # ____________________________________________________________________________
+
+new_llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.25, max_tokens=750, timeout=None, max_retries=2)
+
+generation_chain = new_qa_prompt | new_llm | StrOutputParser()
+parent_retriever_eval_chain_1_v1 = (
+    {"context": itemgetter("question") | parent_retriever,
+     "question": itemgetter("question")} 
+     | RunnablePassthrough.assign(output = generation_chain))
+
+# Configure the chain
+parent_retriever_eval_chain_1_v1 = parent_retriever_eval_chain_1_v1.with_config({"run_name": "PerunaBot 1 Eval"})
+parent_retriever_eval_chain_1_v1 = parent_retriever_eval_chain_1_v1.with_config({
+    "tags": ["chain_1_v1"], 
+    "metadata": {
+        "retriever": "parent retriever", 
+        "collection": "smu_data-1", 
+        "llm": "gpt-3.5-turbo"
+    }
+})

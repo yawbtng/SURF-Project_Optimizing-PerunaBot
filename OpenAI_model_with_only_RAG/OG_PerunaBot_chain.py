@@ -1,7 +1,7 @@
 import os
 from dotenv import find_dotenv, load_dotenv
 from langsmith import Client
-from langchain_qdrant.vectorstores import Qdrant
+from langchain_qdrant import QdrantVectorStore as Qdrant
 from qdrant_client import qdrant_client
 from qdrant_client.http import models
 from langchain_openai import OpenAIEmbeddings
@@ -47,7 +47,7 @@ def get_vectorstore(qdrant_collection_name):
     vector_store = Qdrant(
         client=client, 
         collection_name=qdrant_collection_name, 
-        embeddings=OpenAIEmbeddings(), # Uses 'from langchain_openai import OpenAIEmbeddings'
+        embedding=OpenAIEmbeddings(), # Uses 'from langchain_openai import OpenAIEmbeddings'
     )
     return vector_store
 
@@ -127,16 +127,21 @@ Original_PerunaBot_chain = Original_PerunaBot_chain.with_config({
     }
 })
 
-# Define a function to process chat input and return response using 'from langchain_core.messages import HumanMessage, AIMessage'
-def process_chat(chain, question, chat_history):
-    # Process chat input and return response
-    response = chain.invoke({
-        "chat_history": chat_history,
-        "input": question,
-    })
-    return response["answer"]
 
-if __name__ == '__main__':
+import uuid
+def chat_convo():
+    # session id for the convo
+    config = {"metadata": {"session_id": str(uuid.uuid4())}}    
+
+    # Define a function to process chat input and return response using 'from langchain_core.messages import HumanMessage, AIMessage'
+    def process_chat(chain, question, chat_history):
+        # Process chat input and return response
+        response = chain.invoke({
+            "chat_history": chat_history,
+            "input": question,
+        }, config=config)
+        return response["answer"]
+    
     # Initialize chat history
     chat_history_0 = []
 
@@ -157,6 +162,8 @@ if __name__ == '__main__':
             print("User: ", user_input)
             print("OG PerunaBot: ", response)
 
+if __name__ == '__main__':
+    chat_convo()
 # ____________________________________________________________________________
 # Chain without history for evaluation
 
@@ -184,5 +191,25 @@ Original_PerunaBot_eval_chain = Original_PerunaBot_eval_chain.with_config({
         "llm": "gpt-3.5-turbo"
     }
 })
-Original_PerunaBot_eval_chain.invoke({"question": "What is a good place to study?"})
+# Original_PerunaBot_eval_chain.invoke({"question": "What is a good place to study?"})
 #________________________________________________________________
+
+new_llm = ChatOpenAI(model="gpt-4o", temperature=0.25, max_tokens=750, timeout=None, max_retries=2)
+
+generation_chain = base_prompt | new_llm | StrOutputParser()
+
+Original_PerunaBot_eval_chain_v1 = (
+    {"context": itemgetter("question") | vector_store_0_retriever,
+     "question": itemgetter("question")} 
+    | RunnablePassthrough.assign(output = generation_chain))
+
+# Configure the chain
+Original_PerunaBot_eval_chain_v1 = Original_PerunaBot_eval_chain_v1.with_config({"run_name": "OG PerunaBot Eval"})
+Original_PerunaBot_eval_chain_v1 = Original_PerunaBot_eval_chain_v1.with_config({
+    "tags": ["OG_PerunaBot_eval_chain_v1"],
+    "metadata": {
+        "retriever": "base retriever (aka vector store as retriever)",
+        "collection": "smu_data-0",
+        "llm": "gpt-4o"
+    }
+})
