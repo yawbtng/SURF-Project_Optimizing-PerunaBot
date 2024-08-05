@@ -185,3 +185,22 @@ base_retriever_eval_chain_0 = base_retriever_eval_chain_0.with_config({
 })
 # base_retriever_eval_chain_0.invoke({"question": "What are some good resources on campus?"})
  # ____________________________________________________________________________
+
+new_llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.25, max_tokens=750, timeout=None, max_retries=2)
+
+generation_chain = new_qa_prompt | new_llm | StrOutputParser()
+
+base_retriever_eval_chain_0_v1 = (
+    {"context": itemgetter("question") | vector_store_0_retriever,
+     "question": itemgetter("question")} 
+     | RunnablePassthrough.assign(output = generation_chain))
+
+base_retriever_eval_chain_0_v1 = base_retriever_eval_chain_0_v1.with_config({"run_name": "PerunaBot 0 Eval"})
+base_retriever_eval_chain_0_v1 = base_retriever_eval_chain_0_v1.with_config({
+    "tags": ["chain_0_v1"], 
+    "metadata": {
+        "retriever": "base retriever (aka vector store as retriever)", 
+        "collection": "smu_data-0", 
+        "llm": "gpt-3.5-turbo"
+        }
+})

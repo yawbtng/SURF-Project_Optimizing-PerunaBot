@@ -193,3 +193,23 @@ Original_PerunaBot_eval_chain = Original_PerunaBot_eval_chain.with_config({
 })
 # Original_PerunaBot_eval_chain.invoke({"question": "What is a good place to study?"})
 #________________________________________________________________
+
+new_llm = ChatOpenAI(model="gpt-4o", temperature=0.25, max_tokens=750, timeout=None, max_retries=2)
+
+generation_chain = base_prompt | new_llm | StrOutputParser()
+
+Original_PerunaBot_eval_chain_v1 = (
+    {"context": itemgetter("question") | vector_store_0_retriever,
+     "question": itemgetter("question")} 
+    | RunnablePassthrough.assign(output = generation_chain))
+
+# Configure the chain
+Original_PerunaBot_eval_chain_v1 = Original_PerunaBot_eval_chain_v1.with_config({"run_name": "OG PerunaBot Eval"})
+Original_PerunaBot_eval_chain_v1 = Original_PerunaBot_eval_chain_v1.with_config({
+    "tags": ["OG_PerunaBot_eval_chain_v1"],
+    "metadata": {
+        "retriever": "base retriever (aka vector store as retriever)",
+        "collection": "smu_data-0",
+        "llm": "gpt-4o"
+    }
+})

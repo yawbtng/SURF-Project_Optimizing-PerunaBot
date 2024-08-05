@@ -201,3 +201,23 @@ ensemble_retriever_eval_chain_2 = ensemble_retriever_eval_chain_2.with_config({
 
 # ensemble_retriever_eval_chain_2.invoke({"question": "What if I can't afford to go to SMU?"})
  # ____________________________________________________________________________
+
+new_llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.25, max_tokens=750, timeout=None, max_retries=2)
+
+generation_chain = new_qa_prompt | new_llm | StrOutputParser()
+ensemble_retriever_eval_chain_2_v1 = (
+    {"context": itemgetter("question") | ensemble_retriever,
+     "question": itemgetter("question")} 
+     | RunnablePassthrough.assign(output = generation_chain))
+
+
+# Configure the chain
+ensemble_retriever_eval_chain_2_v1 = ensemble_retriever_eval_chain_2_v1.with_config({"run_name": "PerunaBot 2 Eval"})
+ensemble_retriever_eval_chain_2_v1 = ensemble_retriever_eval_chain_2_v1.with_config({
+    "tags": ["chain_2"], 
+    "metadata": {
+        "retriever": "ensemble retriever", 
+        "collection": "smu_data-2", 
+        "llm": "gpt-3.5-turbo"
+        }
+})

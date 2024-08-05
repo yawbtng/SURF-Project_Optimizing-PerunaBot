@@ -214,3 +214,22 @@ parent_retriever_eval_chain_1 = parent_retriever_eval_chain_1.with_config({
 })
 # parent_retriever_eval_chain_1.invoke({"question": "What is the best residential commons?"})
  # ____________________________________________________________________________
+
+new_llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.25, max_tokens=750, timeout=None, max_retries=2)
+
+generation_chain = new_qa_prompt | new_llm | StrOutputParser()
+parent_retriever_eval_chain_1_v1 = (
+    {"context": itemgetter("question") | parent_retriever,
+     "question": itemgetter("question")} 
+     | RunnablePassthrough.assign(output = generation_chain))
+
+# Configure the chain
+parent_retriever_eval_chain_1_v1 = parent_retriever_eval_chain_1_v1.with_config({"run_name": "PerunaBot 1 Eval"})
+parent_retriever_eval_chain_1_v1 = parent_retriever_eval_chain_1_v1.with_config({
+    "tags": ["chain_1_v1"], 
+    "metadata": {
+        "retriever": "parent retriever", 
+        "collection": "smu_data-1", 
+        "llm": "gpt-3.5-turbo"
+    }
+})
