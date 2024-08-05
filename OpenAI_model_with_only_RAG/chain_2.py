@@ -221,3 +221,25 @@ ensemble_retriever_eval_chain_2_v1 = ensemble_retriever_eval_chain_2_v1.with_con
         "llm": "gpt-3.5-turbo"
         }
 })
+
+ # ____________________________________________________________________________
+
+new_llm_2 = ChatOpenAI(model="gpt-4o-mini", temperature=0.25, max_tokens=750, timeout=None, max_retries=2)
+
+generation_chain = new_qa_prompt | new_llm_2 | StrOutputParser()
+ensemble_retriever_eval_chain_2_v2 = (
+    {"context": itemgetter("question") | ensemble_retriever,
+     "question": itemgetter("question")} 
+     | RunnablePassthrough.assign(output = generation_chain))
+
+
+# Configure the chain
+ensemble_retriever_eval_chain_2_v2 = ensemble_retriever_eval_chain_2_v2.with_config({"run_name": "PerunaBot 2 Eval"})
+ensemble_retriever_eval_chain_2_v2 = ensemble_retriever_eval_chain_2_v2.with_config({
+    "tags": ["chain_2_v2"], 
+    "metadata": {
+        "retriever": "ensemble retriever", 
+        "collection": "smu_data-2", 
+        "llm": "gpt-4o-mini"
+        }
+})

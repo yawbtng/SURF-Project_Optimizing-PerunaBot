@@ -233,3 +233,24 @@ parent_retriever_eval_chain_1_v1 = parent_retriever_eval_chain_1_v1.with_config(
         "llm": "gpt-3.5-turbo"
     }
 })
+
+ # ____________________________________________________________________________
+
+new_llm_2 = ChatOpenAI(model="gpt-4o-mini", temperature=0.25, max_tokens=750, timeout=None, max_retries=2)
+
+generation_chain = new_qa_prompt | new_llm_2 | StrOutputParser()
+parent_retriever_eval_chain_1_v2 = (
+    {"context": itemgetter("question") | parent_retriever,
+     "question": itemgetter("question")} 
+     | RunnablePassthrough.assign(output = generation_chain))
+
+# Configure the chain
+parent_retriever_eval_chain_1_v2 = parent_retriever_eval_chain_1_v2.with_config({"run_name": "PerunaBot 1 Eval"})
+parent_retriever_eval_chain_1_v2 = parent_retriever_eval_chain_1_v2.with_config({
+    "tags": ["chain_1_v2"], 
+    "metadata": {
+        "retriever": "parent retriever", 
+        "collection": "smu_data-1", 
+        "llm": "gpt-4o-mini"
+    }
+})

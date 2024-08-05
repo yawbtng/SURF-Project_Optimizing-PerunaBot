@@ -204,3 +204,24 @@ base_retriever_eval_chain_0_v1 = base_retriever_eval_chain_0_v1.with_config({
         "llm": "gpt-3.5-turbo"
         }
 })
+
+# ____________________________________________________________________________
+
+new_llm_2 = ChatOpenAI(model="gpt-4o-mini", temperature=0.25, max_tokens=750, timeout=None, max_retries=2)
+
+generation_chain = new_qa_prompt | new_llm_2 | StrOutputParser()
+
+base_retriever_eval_chain_0_v2 = (
+    {"context": itemgetter("question") | vector_store_0_retriever,
+     "question": itemgetter("question")} 
+     | RunnablePassthrough.assign(output = generation_chain))
+
+base_retriever_eval_chain_0_v2 = base_retriever_eval_chain_0_v2.with_config({"run_name": "PerunaBot 0 Eval"})
+base_retriever_eval_chain_0_v2 = base_retriever_eval_chain_0_v2.with_config({
+    "tags": ["chain_0_v2"], 
+    "metadata": {
+        "retriever": "base retriever (aka vector store as retriever)", 
+        "collection": "smu_data-0", 
+        "llm": "gpt-4o-mini"
+        }
+})
