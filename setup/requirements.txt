@@ -1,10 +1,11 @@
 openai
 pypdf
 qdrant-client
-langchain=0.2.11
+langchain==0.2.11
 langchain-core
 langchain-community
 langchain-openai
+langchain_qdrant
 langchainhub
 langchain-experimental
 langsmith
@@ -18,3 +19,5 @@ giskard[llm]
 ragas
 jupyter
 ipykernel
+streamlit
+gradio
