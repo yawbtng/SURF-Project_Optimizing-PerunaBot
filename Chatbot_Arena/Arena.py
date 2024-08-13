@@ -16,6 +16,7 @@ open_ai_api_key = os.environ['OPENAI_API_KEY']
 
 all_chains = get_all_chains()
      
+#figuring out gradio and understanding streaming
 def chat_with_OG_chain(user_input, chat_history):
     chat_history = []
     
@@ -84,8 +85,7 @@ def chat_with_chain_2(user_input, chat_history):
         stream += character
         yield stream
 
-def chat_with_chain(chain, user_input, chat_history):
-    chat_history = []
+def chatting_with_chain_(chain, user_input, chat_history):
     
     response = chain.invoke({
                 "chat_history": chat_history, 
@@ -100,6 +100,8 @@ def chat_with_chain(chain, user_input, chat_history):
         time.sleep(0.01)
         stream += character
         yield stream
+
+# gr.ChatInterface(fn=chat_with_chain_1).launch()
 
 js_func = """
 function refresh() {
@@ -117,7 +119,7 @@ def activate_chat_buttons():
         value="🔄  Regenerate", interactive=True, elem_id="regenerate_btn"
     )
     clear_btn = gr.Button(
-        value="🧹  Clear", 
+        value="🎲 New Round", 
         interactive=True, 
     )
     return regenerate_btn, clear_btn
@@ -127,51 +129,50 @@ def deactivate_chat_buttons():
         value="🔄  Regenerate", interactive=False, elem_id="regenerate_btn"
     ) 
     clear_btn = gr.Button(
-        value="🧹  Clear", 
+        value="🎲 New Round", 
         interactive=True, 
     )
     return regenerate_btn, clear_btn
 
-def handle_message(chains, states1, states2, user_input):
+def chat_with_chain(chain, user_input, chat_history):
+    
+    response = chain.invoke({
+                "chat_history": chat_history, 
+                "input": user_input})
+    answer = response["answer"]
+    return answer
+
+def new_handle_message_and_process_responses(chains, states1, states2, user_input):
     history1 = states1.value if states1 else []
     history2 = states2.value if states2 else []
     states = [states1, states2]
     history = [history1, history2]
 
-    for hist in history:
-        hist.append((HumanMessage(content=user_input), None))
-    
-    for (
-        updated_history1,
-        updated_history2,
-        updated_states1,
-        updated_states2,
-    ) in process_responses(
-        chains, history, states
-    ):
-        yield updated_history1, updated_history2, updated_states1, updated_states2 
-
-def process_responses(chains, history, states):
     generators = [
-        [chains][i]["chain"](history[i])
+        chains[i]
         for i in range(2)
     ]
-    responses = [[],[]]
+    histories = [
+        history[i]
+        for i in range(2)
+    ]
+    
     done = [False, False]
     while not all(done):
         for i in range(2):
             if not done[i]:
                 try: 
-                    response = next(generators[i])
+                    response = next(chat_with_chain(generators[i], user_input, histories[i]))
                     if response:
-                        history[i][-1] = (history[i][-1][0], "".join(responses[i]))
+                        history[i].append({"type": "humanMessage", "content": user_input})
+                        history[i].append({"type": "aiMessage", "content": response})
                         states[i] = gr.State(history[i])
                         yield history[0], history[1], states[0], states[1]
                         stream = ''
-                        for character in response:
+                    for character in response:
                             time.sleep(0.01)
                             stream += character
-                        yield stream
+                            yield stream
                 except StopIteration:
                     done[i] = True
     yield history[0], history[1], states[0], states[1]
@@ -179,67 +180,34 @@ def process_responses(chains, history, states):
 def regenerate_message(chains, states1, states2):
     history1 = states1.value if states1 else []  
     history2 = states2.value if states2 else []  
-    user_input = (
-        history1.pop()[0] if history1 else None
-    )  
-    if history2:
-        history2.pop()  
+
+    if history1 and isinstance(history1[-1], dict) and history1[-1].get("type") == "humanMessage":
+        user_input = history1.pop().content
+
+    for history in [history1, history2]:
+        if history and isinstance(history[-1], dict) and history[-1].get("type") == "aiMessage":
+            history.pop() 
+
     states = [states1, states2]  
     history = [history1, history2]  
-    for hist in history:
-        hist.append((user_input, None)) 
+
     for (
         updated_history1,
         updated_history2,
         updated_states1,
         updated_states2,
-    ) in process_responses(
-        chains, history, states
+    ) in new_handle_message_and_process_responses(
+        chains, history, states, user_input
     ):
         yield updated_history1, updated_history2, updated_states1, updated_states2
 
-def process_response(chains, history, states):
-    generators = [
-        chat_with_chain(chains[i], history[i][-1][0].content, history[i])
-        for i in range(2)
-    ]
-    responses = [[], []]
-    done = [False, False]
-    
-    while not all(done):
-        for i in range(2):
-            try:
-                response = next(generators[i])
-                responses[i].append(response)
-                history[i][-1] = (history[i][-1][0], response)
-            except StopIteration:
-                done[i] = True
-    
-    yield history[0], history[1], states[0], states[1]
-
-def handle_messag(chains, states1, states2, user_input):
-    history1 = states1.value if states1 else []
-    history2 = states2.value if states2 else []
-    states = [states1, states2]
-    history = [history1, history2]
-
-    for hist in history:
-        hist.append((HumanMessage(content=user_input), None))
-    
-    for (
-        updated_history1,
-        updated_history2,
-        updated_states1,
-        updated_states2,
-    ) in process_responses(chains, history, states):
-        yield updated_history1, updated_history2, updated_states1, updated_states2
 
 
 
 with gr.Blocks(
     js=js_func,
     theme=gr.Theme.from_hub("gradio/soft"),
-    Title="Welcome to Chatbot Arena!!",
+    title="Welcome to Chatbot Arena!!",
 ) as demo:
     with gr.Tab("Arena"):
         gr.Markdown(
@@ -274,7 +242,7 @@ with gr.Blocks(
                     chatbots.append(gr.Chatbot(
                         label=label,
                         elem_id=f"chatbot",
-                        height=600,
+                        height=400,
                         show_copy_button=True
                     ))
     with gr.Row():  
@@ -312,12 +280,12 @@ with gr.Blocks(
         )
 
     textbox.submit(
-        handle_message,
+        new_handle_message_and_process_responses,
         inputs=[
             chains,
-            textbox,
             states[0],
             states[1],
+            textbox,
         ],
         outputs=[chatbots[0], chatbots[1], states[0], states[1]]
         ).then(
@@ -327,12 +295,12 @@ with gr.Blocks(
         )
 
     send_btn.click(
-        handle_message,
+        new_handle_message_and_process_responses,
         inputs=[
             chains,
-            textbox,
             states[0],
             states[1],
+            textbox,
         ],
         outputs=[chatbots[0], chatbots[1], states[0], states[1]]
         ).then(
@@ -342,15 +310,14 @@ with gr.Blocks(
         )
     
     regenerate_btn.click(
-        handle_message,
+        regenerate_message,
         inputs=[
             chains,
-            textbox,
             states[0],
             states[1],
         ],
-        outputs=[chatbots[0], chatbots[1], states[0], states[1]]
-        )
+        outputs=[chatbots[0], chatbots[1], states[0], states[1]],
+    )
     
     clear_btn.click(
         deactivate_chat_buttons,
