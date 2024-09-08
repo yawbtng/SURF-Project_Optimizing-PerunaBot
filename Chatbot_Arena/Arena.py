@@ -1,3 +1,4 @@
+from arrow import get
 from chains.OG_PerunaBot_chain import Original_PerunaBot_chain
 from chains.chain_0 import base_retriever_chain_0
 from chains.chain_1 import parent_retriever_chain_1
@@ -13,14 +14,13 @@ import os
 load_dotenv(find_dotenv(filename='SURF-Project_Optimizing-PerunaBot/Setup/.env'))
 open_ai_api_key = os.environ['OPENAI_API_KEY']
 
-
 all_chains = get_all_chains()
      
-#figuring out gradio and understanding streaming
+# figuring out gradio and understanding streaming
 def chat_with_OG_chain(user_input, chat_history):
     chat_history = []
     
-    response = parent_retriever_chain_1.invoke({
+    response = Original_PerunaBot_chain.invoke({
                 "chat_history": chat_history, 
                 "input": user_input})
     
@@ -162,7 +162,7 @@ def new_handle_message_and_process_responses(chains, states1, states2, user_inpu
         for i in range(2):
             if not done[i]:
                 try: 
-                    response = next(chat_with_chain(generators[i], user_input, histories[i]))
+                    response = chat_with_chain(generators[i], user_input, histories[i])
                     if response:
                         history[i].append({"type": "humanMessage", "content": user_input})
                         history[i].append({"type": "aiMessage", "content": response})
@@ -203,7 +203,6 @@ def regenerate_message(chains, states1, states2):
 
 
 
-
 with gr.Blocks(
     js=js_func,
     theme=gr.Theme.from_hub("gradio/soft"),
@@ -232,12 +231,12 @@ with gr.Blocks(
         num_sides = 2
         states = [gr.State() for _ in range(num_sides)]
         chatbots = []
-        chains = gr.State(get_random_chains)
+        chains = get_random_chains()
         all_chains = get_all_chains()
 
         with gr.Row():
             for i in range(num_sides):
-                label = chains.value[i]["name"]
+                label = chains[i]["name"]
                 with gr.Column():
                     chatbots.append(gr.Chatbot(
                         label=label,
@@ -245,6 +244,9 @@ with gr.Blocks(
                         height=400,
                         show_copy_button=True
                     ))
+                new_chains = gr.ChatInterface(
+                    fn=chains,
+                )
     with gr.Row():  
         textbox = gr.Textbox(
             show_label=False,
