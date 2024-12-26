@@ -19,6 +19,7 @@ PerunaBot is a sophisticated and user-friendly chatbot designed to assist studen
 This version of PerunaBot was built in Jan 2024 in a different Github repository and utilizes...
 -the base OpenAI large language model without any fine-tuning  
 
+
 -a RAG pipeline with access to the SMU catalog through a Qdrant vectorstore
 
 -Chainlit for the UI
@@ -28,11 +29,12 @@ This version of PerunaBot was built in Jan 2024 in a different Github repository
 The point of this repository is to rebuild the version of PerunaBot from [the original repository](https://github.com/yawbtng/SMUChatBot_Project) in a more organized way that allows for better experimentation, research, and documentation
 
 ## Experimentation/Research
-This LLM application will be compared in performance to two other versions of PerunaBot that are in different repositories:
+This LLM application was compared in performance to three other versions of PerunaBot within the same repository:
 
--A fine-tuned LLM with OpenAI model gpt-4 or gpt-3.5-turbo
+- PerunaBot v0: An upgraded version using GPT-4 with a more detailed personality template.
 
--A fine-tuned LLM with open source models from HuggingFace Hub
+- PerunaBot v1: A version using a Parent-Child document structure for improved context-aware retrieval.
 
+- PerunaBot v2: The most advanced version, combining semantic chunking and ensemble retrieval techniques.
 
-
+These variations were implemented to evaluate different approaches in answering questions about SMU, allowing for direct comparison of performance and effectiveness. The project includes a "Model Descriptions" section in the user interface, providing detailed explanations of each version's technical implementation and purpose.
